@@ -12,7 +12,7 @@
 
 Zeth Code is a fork of [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code), adapted under the ZethRise namespace with Windows release builds and the `zeth` command. It keeps the terminal-first agent workflow: read and edit code, run commands, manage Git, preserve project memory across sessions, and connect to OpenAI-compatible model providers.
 
-MiMo Code is built as a fork of [OpenCode](https://github.com/anomalyco/opencode). Zeth Code continues that lineage with a focus on standalone Windows binaries and a TUI-first experience.
+MiMo Code is built as a fork of [OpenCode](https://github.com/anomalyco/opencode). Zeth Code Fixes the issues with MiMo Code and added a few new features!
 
 ---
 
