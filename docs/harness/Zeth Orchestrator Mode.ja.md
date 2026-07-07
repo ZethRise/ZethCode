@@ -1,4 +1,4 @@
-# MiMo Orchestrator Mode
+# Zeth Orchestrator Mode
 
 **一言で**：「調整役（コーディネーター）」のプライマリモード。**単一ウィンドウ・単一セッション・純粋な自然言語**ですべてのタスクを管理する。作業を子セッション（child session）に委譲し、自身は調整・統合・報告を担うことで、複数のウィンドウ／セッションを行き来する必要をなくす（実験的機能、デフォルト無効）。
 
@@ -38,7 +38,7 @@ Orchestrator セッション（グローバルに一意、§5 参照）
 
 - 各 child は**独立したセッション**（固有の session id・タスクパネル・メモリを持つ）で、`mode: "peer"` として**バックグラウンド**で動く。
 - Orchestrator は割り当て後**即座に戻り**、ポーリングしない。child は完了時に inbox 通知で**能動的に起こす**。
-- child は peer であり、セッション内 subagent ではない——`mimo -c <id>` と同様に、任意の child セッションへ**完全に attach** して閲覧／引き継ぎができる。
+- child は peer であり、セッション内 subagent ではない——`zeth -c <id>` と同様に、任意の child セッションへ**完全に attach** して閲覧／引き継ぎができる。
 
 ## 3. `session` ツール（Orchestrator の中核能力）
 

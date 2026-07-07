@@ -1,4 +1,4 @@
-# MiMo Token Efficient Mode
+# Zeth Token Efficient Mode
 
 **一言まとめ**: 汎用正規表現フィルタパイプライン + ヒューリスティックフィルタパイプラインを使って Bash 出力の冗長トークンを除去する（実験機能、デフォルト無効）。
 

@@ -1,4 +1,4 @@
-# MiMo Token Efficient Mode
+# Zeth Token Efficient Mode
 
 **One-line summary**: Uses a generic regex filter pipeline + heuristic filter pipeline to strip redundant tokens from Bash output (experimental feature, disabled by default).
 

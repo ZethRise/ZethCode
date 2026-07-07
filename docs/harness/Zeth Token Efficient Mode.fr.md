@@ -1,4 +1,4 @@
-# MiMo Token Efficient Mode
+# Zeth Token Efficient Mode
 
 **Résumé en une phrase** : utilise un pipeline de filtrage par regex générique + un pipeline de filtrage heuristique pour retirer les tokens redondants de la sortie Bash (fonctionnalité expérimentale, désactivée par défaut).
 

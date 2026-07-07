@@ -1,4 +1,4 @@
-# MiMo Orchestrator Mode
+# Zeth Orchestrator Mode
 
 **一句话总结**：一个"调度者"主模式——用**单一窗口、单一会话、纯自然语言**管理所有任务：把工作委派给子会话（child session），自己负责协调、集成与汇报，让你不必在多个窗口/会话间来回切换（实验功能，默认关闭）。
 
@@ -38,7 +38,7 @@ Orchestrator 会话（全局唯一，见 §5）
 
 - 每个 child 是一个**独立会话**（有自己的 session id、任务面板、记忆），以 `mode: "peer"` 在**后台**运行。
 - Orchestrator 派发后**立即返回**，不轮询；child 完成时通过 inbox 通知**主动唤醒**它。
-- child 是 peer，不是 in-session 的 subagent —— 用户可以像 `mimo -c <id>` 一样**完整 attach** 进任意 child 会话查看/接管。
+- child 是 peer，不是 in-session 的 subagent —— 用户可以像 `zeth -c <id>` 一样**完整 attach** 进任意 child 会话查看/接管。
 
 ## 3. `session` 工具（Orchestrator 的核心能力）
 

@@ -11,7 +11,7 @@ Responses API frequently saw:
   `session/classify.ts:108-116` labels `think-only` / `"empty output"`.
 - **`reasoning part rs_… not found`** — a server-side Responses API rejection, seen even
   when the user's config already set `include: ["reasoning.encrypted_content"]`, and
-  specifically against a **custom `baseURL` proxy** (MiMo Router), not `api.openai.com`.
+  specifically against a **custom `baseURL` proxy** (custom router), not `api.openai.com`.
 
 Initial hypotheses that were **ruled out**:
 - "ai-sdk too old" — false. `ai@6.0.168`, `@ai-sdk/openai@3.0.53` are current and identical

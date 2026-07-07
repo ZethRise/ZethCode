@@ -1,4 +1,4 @@
-# MiMo Orchestrator Mode
+# Zeth Orchestrator Mode
 
 **En une phrase** : un mode principal « coordinateur » — gérez toutes vos tâches depuis **une seule fenêtre, une seule session, en langage naturel pur** : il délègue le travail à des sessions enfants (child sessions) et se charge de la coordination, de l'intégration et du compte rendu, pour que vous n'ayez jamais à basculer entre plusieurs fenêtres/sessions (fonctionnalité expérimentale, désactivée par défaut).
 
@@ -38,7 +38,7 @@ coordonner / intégrer (git merge la branche zethcode/* de chaque enfant) / rend
 
 - Chaque enfant est une **session indépendante** (son propre session id, panneau de tâches, mémoire), tournant en **arrière-plan** avec `mode: "peer"`.
 - L'Orchestrator **revient immédiatement** après la distribution et ne fait pas de polling ; un enfant le **réveille activement** via une notification d'inbox à sa fin.
-- Un enfant est un peer, pas un subagent intra-session — vous pouvez vous **attacher entièrement** à n'importe quelle session enfant pour la consulter/reprendre, comme `mimo -c <id>`.
+- Un enfant est un peer, pas un subagent intra-session — vous pouvez vous **attacher entièrement** à n'importe quelle session enfant pour la consulter/reprendre, comme `zeth -c <id>`.
 
 ## 3. L'outil `session` (la capacité centrale de l'Orchestrator)
 
