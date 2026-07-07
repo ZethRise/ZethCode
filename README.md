@@ -18,7 +18,14 @@ MiMo Code is built as a fork of [OpenCode](https://github.com/anomalyco/opencode
 
 ## Quick Start
 
-Download the latest Windows executable from the [releases page](https://github.com/ZethRise/ZethCode/releases/latest):
+Install with npm:
+
+```bash
+npm install -g @zethrise/cli
+zeth
+```
+
+Or download a standalone Windows executable from the [releases page](https://github.com/ZethRise/ZethCode/releases/latest):
 
 | Build | Use when |
 |-------|----------|
