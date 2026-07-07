@@ -2,6 +2,19 @@ name: build-windows
 
 on:
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a draft GitHub release'
+        type: boolean
+        required: false
+        default: false
+      version:
+        description: 'Release version (optional, e.g. 1.0.0. If empty, uses version from package.json)'
+        type: string
+        required: false
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -21,19 +34,60 @@ jobs:
       - name: Run build script
         run: bun run ./packages/opencode/script/build.ts
 
-      - name: Upload Windows x64 Executable
+      - name: Get version
+        id: get_version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(bun -e "console.log(JSON.parse(require('fs').readFileSync('packages/opencode/package.json')).version)")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create Zip Archives
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "packages/opencode/dist/zethcode-windows-x64/bin/*" -DestinationPath "packages/opencode/dist/zethcode-windows-x64.zip" -Force
+          Compress-Archive -Path "packages/opencode/dist/zethcode-windows-x64-baseline/bin/*" -DestinationPath "packages/opencode/dist/zethcode-windows-x64-baseline.zip" -Force
+          Compress-Archive -Path "packages/opencode/dist/zethcode-windows-arm64/bin/*" -DestinationPath "packages/opencode/dist/zethcode-windows-arm64.zip" -Force
+
+      - name: Create Draft Release and Upload Binaries
+        if: ${{ github.event.inputs.create_release == 'true' }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.get_version.outputs.version }}"
+          echo "Checking if release $TAG exists..."
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Creating draft release $TAG..."
+            gh release create "$TAG" -d --title "$TAG" --target "${{ github.sha }}" --repo "${{ github.repository }}"
+          else
+            echo "Release $TAG already exists."
+          fi
+          
+          echo "Uploading Windows build artifacts to release $TAG..."
+          gh release upload "$TAG" \
+            packages/opencode/dist/zethcode-windows-x64.zip \
+            packages/opencode/dist/zethcode-windows-x64-baseline.zip \
+            packages/opencode/dist/zethcode-windows-arm64.zip \
+            --clobber --repo "${{ github.repository }}"
+
+      - name: Upload Windows x64 Executable Artifact
         uses: actions/upload-artifact@v4
         with:
           name: zethcode-windows-x64
           path: packages/opencode/dist/zethcode-windows-x64/bin/zeth.exe
 
-      - name: Upload Windows x64 Baseline Executable
+      - name: Upload Windows x64 Baseline Executable Artifact
         uses: actions/upload-artifact@v4
         with:
           name: zethcode-windows-x64-baseline
           path: packages/opencode/dist/zethcode-windows-x64-baseline/bin/zeth.exe
 
-      - name: Upload Windows arm64 Executable
+      - name: Upload Windows arm64 Executable Artifact
         uses: actions/upload-artifact@v4
         with:
           name: zethcode-windows-arm64
