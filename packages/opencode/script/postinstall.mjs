@@ -50,7 +50,7 @@ function detectPlatformAndArch() {
 function findBinary() {
   const { platform, arch } = detectPlatformAndArch()
   const packageName = `@zethrise/zethcode-${platform}-${arch}`
-  const binaryName = platform === "windows" ? "mimo.exe" : "mimo"
+  const binaryName = platform === "windows" ? "zeth.exe" : "zeth"
 
   try {
     // Use require.resolve to find the package
@@ -70,8 +70,8 @@ function findBinary() {
 
 function printMigrationNotice() {
   const install = os.platform() === "win32"
-    ? "irm https://mimo.xiaomi.com/install.ps1 | iex"
-    : "curl -fsSL https://mimo.xiaomi.com/install | bash"
+    ? "irm https://raw.githubusercontent.com/ZethRise/ZethCode/master/install.ps1 | iex"
+    : "npm install -g @zethrise/cli"
   console.log()
   console.log("  Recommended: install ZethCode natively for a better install and upgrade experience:")
   console.log(`    ${install}`)
@@ -82,7 +82,7 @@ async function main() {
   printMigrationNotice()
 
   if (os.platform() === "win32") {
-    // On Windows the bin/mimo wrapper finds the binary via node_modules traversal.
+    // On Windows the bin/zeth wrapper finds the binary via node_modules traversal.
     // Skipping the .zethcode cache avoids creating an extensionless PE file that
     // may trigger antivirus false-positives.
     return

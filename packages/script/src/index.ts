@@ -27,7 +27,9 @@ const CHANNEL = await (async () => {
   if (env.ZETHCODE_CHANNEL) return env.ZETHCODE_CHANNEL
   if (env.ZETHCODE_BUMP) return "latest"
   if (env.ZETHCODE_VERSION && !env.ZETHCODE_VERSION.startsWith("0.0.0-")) return "latest"
-  return await $`git branch --show-current`.text().then((x) => x.trim()) || "latest"
+  const branch = await $`git branch --show-current`.text().then((x) => x.trim())
+  if (branch === "main" || branch === "master") return "latest"
+  return branch || "latest"
 })()
 const IS_PREVIEW = CHANNEL !== "latest"
 

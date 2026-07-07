@@ -46,6 +46,7 @@ import { ConfigVariable } from "./variable"
 import { Npm } from "@/npm"
 
 const log = Log.create({ service: "config" })
+const CONFIG_SCHEMA_URL = "https://raw.githubusercontent.com/ZethRise/ZethCode/master/schema/config.json"
 
 // Custom merge function that concatenates array fields instead of replacing them
 function mergeConfigConcatArrays(target: Info, source: Info): Info {
@@ -561,8 +562,8 @@ export const layer = Layer.effect(
 
       yield* Effect.promise(() => resolveLoadedPlugins(data, options.path))
       if (!data.$schema || data.$schema === "https://opencode.ai/config.json") {
-        data.$schema = "https://mimo.xiaomi.com/zethcode/config.json"
-        const edits = modify(text, ["$schema"], "https://mimo.xiaomi.com/zethcode/config.json", {
+        data.$schema = CONFIG_SCHEMA_URL
+        const edits = modify(text, ["$schema"], CONFIG_SCHEMA_URL, {
           formattingOptions: { insertSpaces: true, tabSize: 2 },
           isArrayInsertion: false,
         })
@@ -596,7 +597,7 @@ export const layer = Layer.effect(
             .then(async (mod) => {
               const { provider, model, ...rest } = mod.default
               if (provider && model) result.model = `${provider}/${model}`
-              result["$schema"] = "https://mimo.xiaomi.com/zethcode/config.json"
+              result["$schema"] = CONFIG_SCHEMA_URL
               result = mergeDeep(result, rest)
               await fsNode.writeFile(path.join(Global.Path.config, "config.json"), JSON.stringify(result, null, 2))
               await fsNode.unlink(legacy)
@@ -612,7 +613,7 @@ export const layer = Layer.effect(
         !existsSync(path.join(Global.Path.config, "zethcode.json")) &&
         !existsSync(globalConfigFile)
       ) {
-        const starter = '{\n  "$schema": "https://mimo.xiaomi.com/zethcode/config.json"\n}\n'
+        const starter = `{\n  "$schema": "${CONFIG_SCHEMA_URL}"\n}\n`
         yield* fs.writeFileString(globalConfigFile, starter).pipe(Effect.catch(() => Effect.void))
       }
 
@@ -757,7 +758,7 @@ export const layer = Layer.effect(
             }
             const wellknown = (yield* Effect.promise(() => response.json())) as { config?: Record<string, unknown> }
             const remoteConfig = wellknown.config ?? {}
-            if (!remoteConfig.$schema) remoteConfig.$schema = "https://mimo.xiaomi.com/zethcode/config.json"
+            if (!remoteConfig.$schema) remoteConfig.$schema = CONFIG_SCHEMA_URL
             const source = `${url}/.well-known/opencode`
             const next = yield* loadConfig(JSON.stringify(remoteConfig), {
               dir: path.dirname(source),

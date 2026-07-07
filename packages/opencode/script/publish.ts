@@ -45,16 +45,16 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
       version: version,
       description: "Zeth Code: Where Models and Agents Co-Evolve",
       license: "MIT",
-      author: "Xiaomi MiMo Team",
-      homepage: "https://mimo.xiaomi.com/coder",
+      author: "ZethRise",
+      homepage: "https://github.com/ZethRise/ZethCode",
       repository: {
         type: "git",
-        url: "git+https://github.com/XiaomiMiMo/MiMo-Code.git",
+        url: "git+https://github.com/ZethRise/ZethCode.git",
       },
       bugs: {
-        url: "https://github.com/XiaomiMiMo/MiMo-Code/issues",
+        url: "https://github.com/ZethRise/ZethCode/issues",
       },
-      keywords: ["ai", "cli", "code", "xiaomi", "mimo", "zethcode"],
+      keywords: ["ai", "cli", "code", "zethrise", "zethcode"],
       bin: {
         zeth: "./bin/zeth",
       },

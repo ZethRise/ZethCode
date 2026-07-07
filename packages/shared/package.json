@@ -1,9 +1,18 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "@zethrise/shared",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/ZethRise/ZethCode",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZethRise/ZethCode.git",
+    "directory": "packages/shared"
+  },
+  "bugs": {
+    "url": "https://github.com/ZethRise/ZethCode/issues"
+  },
   "publishConfig": {
     "access": "public"
   },

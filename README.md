@@ -10,6 +10,10 @@
 
 <p align="center"><strong>Terminal-native AI coding assistant for local developer workflows.</strong></p>
 
+<p align="center">
+  English | <a href="./README.fa.md">فارسی</a>
+</p>
+
 Zeth Code is a fork of [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code), adapted under the ZethRise namespace with Windows release builds and the `zeth` command. It keeps the terminal-first agent workflow: read and edit code, run commands, manage Git, preserve project memory across sessions, and connect to OpenAI-compatible model providers.
 
 MiMo Code is built as a fork of [OpenCode](https://github.com/anomalyco/opencode). Zeth Code Fixes the issues with MiMo Code and added a few new features!
@@ -23,6 +27,12 @@ Install with npm:
 ```bash
 npm install -g @zethrise/cli
 zeth
+```
+
+Install on Windows with PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/ZethRise/ZethCode/master/install.ps1 | iex
 ```
 
 Or download a standalone Windows executable from the [releases page](https://github.com/ZethRise/ZethCode/releases/latest):

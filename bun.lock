@@ -281,7 +281,7 @@
     },
     "packages/opencode": {
       "name": "@zethrise/cli",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "bin": {
         "zeth": "./bin/zeth",
       },
@@ -438,7 +438,7 @@
     },
     "packages/plugin": {
       "name": "@zethrise/plugin",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "@zethrise/sdk": "workspace:*",
         "effect": "catalog:",
@@ -473,7 +473,7 @@
     },
     "packages/sdk/js": {
       "name": "@zethrise/sdk",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "dependencies": {
         "cross-spawn": "catalog:",
       },
@@ -488,10 +488,7 @@
     },
     "packages/shared": {
       "name": "@zethrise/shared",
-      "version": "1.0.0",
-      "bin": {
-        "opencode": "./bin/opencode",
-      },
+      "version": "1.0.1",
       "dependencies": {
         "@effect/platform-node": "catalog:",
         "@npmcli/arborist": "catalog:",
