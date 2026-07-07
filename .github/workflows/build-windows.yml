@@ -18,8 +18,12 @@ permissions:
 
 jobs:
   build:
-    name: Build Windows Executables
+    name: Build Windows (${{ matrix.arch }})
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, x64-baseline, arm64]
 
     steps:
       - name: Checkout repository
@@ -32,8 +36,33 @@ jobs:
         run: bun run ./packages/sdk/js/script/build.ts
 
       - name: Run build script
-        run: bun run ./packages/opencode/script/build.ts --os=windows
+        run: bun run ./packages/opencode/script/build.ts --os=windows --arch=${{ matrix.arch }}
 
+      - name: Create Zip Archive
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "packages/opencode/dist/zethcode-windows-${{ matrix.arch }}/bin/*" -DestinationPath "packages/opencode/dist/zethcode-windows-${{ matrix.arch }}.zip" -Force
+
+      - name: Upload Windows Executable Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zethcode-windows-${{ matrix.arch }}
+          path: |
+            packages/opencode/dist/zethcode-windows-${{ matrix.arch }}/bin/zeth.exe
+            packages/opencode/dist/zethcode-windows-${{ matrix.arch }}.zip
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      github.event.inputs.create_release == 'true' &&
+      (needs.build.result == 'success' || needs.build.result == 'failed')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
       - name: Get version
         id: get_version
@@ -42,20 +71,16 @@ jobs:
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
           else
-            VERSION=$(bun -e "console.log(JSON.parse(require('fs').readFileSync('packages/opencode/package.json')).version)")
+            VERSION=$(jq -r .version packages/opencode/package.json)
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Create Zip Archives
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "packages/opencode/dist/zethcode-windows-x64/bin/*" -DestinationPath "packages/opencode/dist/zethcode-windows-x64.zip" -Force
-          Compress-Archive -Path "packages/opencode/dist/zethcode-windows-x64-baseline/bin/*" -DestinationPath "packages/opencode/dist/zethcode-windows-x64-baseline.zip" -Force
-          Compress-Archive -Path "packages/opencode/dist/zethcode-windows-arm64/bin/*" -DestinationPath "packages/opencode/dist/zethcode-windows-arm64.zip" -Force
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
 
       - name: Create Draft Release and Upload Binaries
-        if: ${{ github.event.inputs.create_release == 'true' }}
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -70,26 +95,5 @@ jobs:
           fi
           
           echo "Uploading Windows build artifacts to release $TAG..."
-          gh release upload "$TAG" \
-            packages/opencode/dist/zethcode-windows-x64.zip \
-            packages/opencode/dist/zethcode-windows-x64-baseline.zip \
-            packages/opencode/dist/zethcode-windows-arm64.zip \
-            --clobber --repo "${{ github.repository }}"
-
-      - name: Upload Windows x64 Executable Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: zethcode-windows-x64
-          path: packages/opencode/dist/zethcode-windows-x64/bin/zeth.exe
-
-      - name: Upload Windows x64 Baseline Executable Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: zethcode-windows-x64-baseline
-          path: packages/opencode/dist/zethcode-windows-x64-baseline/bin/zeth.exe
-
-      - name: Upload Windows arm64 Executable Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: zethcode-windows-arm64
-          path: packages/opencode/dist/zethcode-windows-arm64/bin/zeth.exe
+          # Find all zip files and upload them
+          find ./artifacts -name "*.zip" -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber --repo "${{ github.repository }}"

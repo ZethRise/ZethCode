@@ -146,8 +146,24 @@ const allTargets: {
 ]
 
 const osArg = process.argv.find((arg) => arg.startsWith("--os="))
-const targets = osArg
-  ? allTargets.filter((item) => item.os === (osArg.split("=")[1] === "windows" ? "win32" : osArg.split("=")[1]))
+const archArg = process.argv.find((arg) => arg.startsWith("--arch="))
+const archs = archArg ? archArg.split("=")[1].split(",") : null
+
+const targets = (osArg || archs)
+  ? allTargets.filter((item) => {
+      if (osArg) {
+        const targetOs = osArg.split("=")[1] === "windows" ? "win32" : osArg.split("=")[1]
+        if (item.os !== targetOs) return false
+      }
+      if (archs) {
+        return archs.some((a) => {
+          if (a === "x64-baseline") return item.arch === "x64" && item.avx2 === false
+          if (a === "x64") return item.arch === "x64" && item.avx2 !== false
+          return item.arch === a
+        })
+      }
+      return true
+    })
   : singleFlag
   ? allTargets.filter((item) => {
       if (item.os !== process.platform || item.arch !== process.arch) {
@@ -168,6 +184,7 @@ const targets = osArg
       return true
     })
   : allTargets
+
 
 
 await $`rm -rf dist`
@@ -208,8 +225,10 @@ process.on("exit", () => {
 
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
-  await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
-  await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
+  const targetOses = Array.from(new Set(targets.map((t) => t.os === "win32" ? "win32" : t.os))).join(",")
+  const targetCPUs = Array.from(new Set(targets.map((t) => t.arch))).join(",")
+  await $`bun install --os="${targetOses}" --cpu="${targetCPUs}" @opentui/core@${pkg.dependencies["@opentui/core"]}`
+  await $`bun install --os="${targetOses}" --cpu="${targetCPUs}" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
 }
 for (const item of targets) {
   const name = [
