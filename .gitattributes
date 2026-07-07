@@ -1,0 +1,5 @@
+# Force LF line endings for shell scripts and workflow files so they run
+# correctly on Linux runners regardless of the contributor's local autocrlf.
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf

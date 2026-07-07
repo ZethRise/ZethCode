@@ -1,4 +1,4 @@
-name: build-windows
+name: build
 
 on:
   workflow_dispatch:
@@ -9,16 +9,64 @@ on:
         required: false
         default: false
       version:
-        description: 'Release version (optional, e.g. 1.0.1. If empty, uses version from package.json)'
+        description: 'Release version (optional, e.g. 1.0.2. If empty, uses version from package.json)'
         type: string
         required: false
-        default: '1.0.1'
+        default: '1.0.2'
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  build-linux:
+    name: Build Linux (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Build SDK
+        run: bun run ./packages/sdk/js/script/build.ts
+
+      - name: Set build version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(bun -e "console.log(require('./packages/opencode/package.json').version)")
+          fi
+          echo "ZETHCODE_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Run build script
+        run: bun run ./packages/opencode/script/build.ts --os=linux --arch=${{ matrix.arch }}
+
+      - name: Package .deb and .AppImage
+        run: |
+          chmod +x ./packages/opencode/script/package-linux.sh
+          ./packages/opencode/script/package-linux.sh "${{ matrix.arch }}" "${ZETHCODE_VERSION}"
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zethcode-linux-${{ matrix.arch }}
+          path: |
+            packages/opencode/dist/zethcode-linux-${{ matrix.arch }}.deb
+            packages/opencode/dist/zethcode-linux-${{ matrix.arch }}.AppImage
+
+  build-windows:
     name: Build Windows (${{ matrix.arch }})
     runs-on: windows-latest
     env:
@@ -65,12 +113,13 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: build
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     if: |
       always() &&
       github.event.inputs.create_release == 'true' &&
-      (needs.build.result == 'success' || needs.build.result == 'failed')
+      (needs.build-linux.result == 'success' || needs.build-linux.result == 'failed') &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'failed')
 
     steps:
       - name: Checkout repository
@@ -105,6 +154,6 @@ jobs:
           else
             echo "Release $TAG already exists."
           fi
-          
-          echo "Uploading Windows build artifacts to release $TAG..."
-          find ./artifacts -name "*.exe" -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber --repo "${{ github.repository }}"
+
+          echo "Uploading build artifacts to release $TAG..."
+          find ./artifacts \( -name "*.deb" -o -name "*.AppImage" -o -name "*.exe" \) -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber --repo "${{ github.repository }}"

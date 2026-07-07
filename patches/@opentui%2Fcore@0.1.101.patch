@@ -64,3 +64,30 @@ index 964cc24e3051ec8d4aeac37b68eed747b433d1b5..ef4ee58deeed1b28c3863268429d7b2b
      };
      this.editBuffer.setText = (text) => {
        if (this.destroyed) {
+diff --git a/index-ekbq0zm9.js b/index-ekbq0zm9.js
+index 99885588fa1e735d584848f351f811554f23627b..992e3d7ec1c1cfd59d3611d7c380f1fdf54227ea 100644
+--- a/index-ekbq0zm9.js
++++ b/index-ekbq0zm9.js
+@@ -9489,6 +9489,7 @@ class MarkdownRenderable extends Renderable {
+       onChunks: this._linkifyMarkdownChunks,
+       treeSitterClient: this._treeSitterClient,
+       width: "100%",
++      wrapMode: "word",
+       marginBottom
+     });
+   }
+@@ -9517,6 +9518,7 @@ class MarkdownRenderable extends Renderable {
+     renderable.drawUnstyledText = false;
+     renderable.streaming = true;
++    renderable.wrapMode = "word";
+     renderable.marginBottom = marginBottom;
+   }
+@@ -9716,7 +9718,7 @@ class MarkdownRenderable extends Renderable {
+     return {
+       columnWidthMode: this._tableOptions?.widthMode ?? "full",
+       columnFitter: this._tableOptions?.columnFitter ?? "proportional",
+-      wrapMode: this._tableOptions?.wrapMode ?? "word",
++      wrapMode: this._tableOptions?.wrapMode ?? "char",
+       cellPadding: this._tableOptions?.cellPadding ?? 0,
+       border: borders,
+       outerBorder: this._tableOptions?.outerBorder ?? borders,

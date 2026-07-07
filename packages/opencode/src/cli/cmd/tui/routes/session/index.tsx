@@ -1471,11 +1471,18 @@ function UserMessage(props: {
             backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
             flexShrink={0}
           >
-            <box flexDirection="row" justifyContent={rtl() ? "flex-end" : "flex-start"}>
-              <text fg={theme.text} wrapMode="word">
-                {displayText()}
-              </text>
-            </box>
+            <Show
+              when={rtl()}
+              fallback={
+                <text fg={theme.text}>{text()?.text}</text>
+              }
+            >
+              <box width="100%" alignItems="flex-end">
+                <text fg={theme.text} wrapMode="word">
+                  {displayText()}
+                </text>
+              </box>
+            </Show>
             <Show when={files().length}>
               <box flexDirection="row" paddingBottom={metadataVisible() ? 1 : 0} paddingTop={1} gap={1} flexWrap="wrap">
                 <For each={files()}>
@@ -1859,38 +1866,72 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
   const rtl = createMemo(() => hasRTL(props.part.text))
   return (
     <Show when={props.part.text.trim()}>
-      <box
-        id={"text-" + props.part.id}
-        paddingLeft={rtl() ? 0 : 3}
-        paddingRight={rtl() ? 3 : 0}
-        marginTop={1}
-        flexShrink={0}
-        alignItems={rtl() ? "flex-end" : "flex-start"}
+      <Show
+        when={rtl()}
+        fallback={
+          <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>
+            <Switch>
+              <Match when={Flag.ZETHCODE_EXPERIMENTAL_MARKDOWN}>
+                <markdown
+                  syntaxStyle={syntax()}
+                  streaming={true}
+                  content={props.part.text.trim()}
+                  conceal={ctx.conceal()}
+                  fg={theme.markdownText}
+                  bg={theme.background}
+                />
+              </Match>
+              <Match when={!Flag.ZETHCODE_EXPERIMENTAL_MARKDOWN}>
+                <code
+                  filetype="markdown"
+                  drawUnstyledText={false}
+                  streaming={true}
+                  syntaxStyle={syntax()}
+                  content={props.part.text.trim()}
+                  conceal={ctx.conceal()}
+                  fg={theme.text}
+                />
+              </Match>
+            </Switch>
+          </box>
+        }
       >
-        <Switch>
-          <Match when={Flag.ZETHCODE_EXPERIMENTAL_MARKDOWN}>
-            <markdown
-              syntaxStyle={syntax()}
-              streaming={true}
-              content={content()}
-              conceal={ctx.conceal()}
-              fg={theme.markdownText}
-              bg={theme.background}
-            />
-          </Match>
-          <Match when={!Flag.ZETHCODE_EXPERIMENTAL_MARKDOWN}>
-            <code
-              filetype="markdown"
-              drawUnstyledText={false}
-              streaming={true}
-              syntaxStyle={syntax()}
-              content={content()}
-              conceal={ctx.conceal()}
-              fg={theme.text}
-            />
-          </Match>
-        </Switch>
-      </box>
+        <box
+          id={"text-" + props.part.id}
+          paddingRight={3}
+          marginTop={1}
+          flexShrink={0}
+          width="100%"
+          alignItems="flex-end"
+        >
+          <Switch>
+            <Match when={Flag.ZETHCODE_EXPERIMENTAL_MARKDOWN}>
+              <markdown
+                syntaxStyle={syntax()}
+                streaming={true}
+                content={content()}
+                conceal={ctx.conceal()}
+                fg={theme.markdownText}
+                bg={theme.background}
+                tableOptions={{ wrapMode: "char" }}
+              />
+            </Match>
+            <Match when={!Flag.ZETHCODE_EXPERIMENTAL_MARKDOWN}>
+              <code
+                filetype="markdown"
+                drawUnstyledText={false}
+                streaming={true}
+                syntaxStyle={syntax()}
+                content={content()}
+                conceal={ctx.conceal()}
+                fg={theme.text}
+                wrapMode="word"
+                width="100%"
+              />
+            </Match>
+          </Switch>
+        </box>
+      </Show>
     </Show>
   )
 }
