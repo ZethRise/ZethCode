@@ -12,7 +12,8 @@ runs:
         path: |
           ~/.bun/install/cache
           ~/AppData/Local/.bun/install/cache
-        key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          .bun-cache
+        key: ${{ runner.os }}-bun-${{ hashFiles('package.json', '**/bun.lock') }}
         restore-keys: |
           ${{ runner.os }}-bun-
 

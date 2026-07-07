@@ -20,6 +20,8 @@ jobs:
   build:
     name: Build Windows (${{ matrix.arch }})
     runs-on: windows-latest
+    env:
+      BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}\.bun-cache
     strategy:
       fail-fast: false
       matrix:
