@@ -145,7 +145,10 @@ const allTargets: {
   },
 ]
 
-const targets = singleFlag
+const osArg = process.argv.find((arg) => arg.startsWith("--os="))
+const targets = osArg
+  ? allTargets.filter((item) => item.os === (osArg.split("=")[1] === "windows" ? "win32" : osArg.split("=")[1]))
+  : singleFlag
   ? allTargets.filter((item) => {
       if (item.os !== process.platform || item.arch !== process.arch) {
         return false
@@ -165,6 +168,7 @@ const targets = singleFlag
       return true
     })
   : allTargets
+
 
 await $`rm -rf dist`
 

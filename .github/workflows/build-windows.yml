@@ -32,7 +32,8 @@ jobs:
         run: bun run ./packages/sdk/js/script/build.ts
 
       - name: Run build script
-        run: bun run ./packages/opencode/script/build.ts
+        run: bun run ./packages/opencode/script/build.ts --os=windows
+
 
       - name: Get version
         id: get_version
