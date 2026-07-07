@@ -1,0 +1,40 @@
+name: build-windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Windows Executables
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Build SDK
+        run: bun run ./packages/sdk/js/script/build.ts
+
+      - name: Run build script
+        run: bun run ./packages/opencode/script/build.ts
+
+      - name: Upload Windows x64 Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: zethcode-windows-x64
+          path: packages/opencode/dist/zethcode-windows-x64/bin/zeth.exe
+
+      - name: Upload Windows x64 Baseline Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: zethcode-windows-x64-baseline
+          path: packages/opencode/dist/zethcode-windows-x64-baseline/bin/zeth.exe
+
+      - name: Upload Windows arm64 Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: zethcode-windows-arm64
+          path: packages/opencode/dist/zethcode-windows-arm64/bin/zeth.exe
