@@ -40,18 +40,17 @@ jobs:
       - name: Run build script
         run: bun run ./packages/opencode/script/build.ts --os=windows --arch=${{ matrix.arch }}
 
-      - name: Create Zip Archive
+      - name: Rename Executable
         shell: pwsh
         run: |
-          Compress-Archive -Path "packages/opencode/dist/zethcode-windows-${{ matrix.arch }}/bin/*" -DestinationPath "packages/opencode/dist/zethcode-windows-${{ matrix.arch }}.zip" -Force
+          Copy-Item "packages/opencode/dist/zethcode-windows-${{ matrix.arch }}/bin/zeth.exe" "packages/opencode/dist/zethcode-windows-${{ matrix.arch }}.exe" -Force
 
       - name: Upload Windows Executable Artifact
         uses: actions/upload-artifact@v4
         with:
           name: zethcode-windows-${{ matrix.arch }}
           path: |
-            packages/opencode/dist/zethcode-windows-${{ matrix.arch }}/bin/zeth.exe
-            packages/opencode/dist/zethcode-windows-${{ matrix.arch }}.zip
+            packages/opencode/dist/zethcode-windows-${{ matrix.arch }}.exe
 
   release:
     name: Create GitHub Release
@@ -97,5 +96,4 @@ jobs:
           fi
           
           echo "Uploading Windows build artifacts to release $TAG..."
-          # Find all zip files and upload them
-          find ./artifacts -name "*.zip" -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber --repo "${{ github.repository }}"
+          find ./artifacts -name "*.exe" -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber --repo "${{ github.repository }}"
