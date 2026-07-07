@@ -37,6 +37,16 @@ jobs:
       - name: Build SDK
         run: bun run ./packages/sdk/js/script/build.ts
 
+      - name: Set build version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(bun -e "console.log(require('./packages/opencode/package.json').version)")
+          fi
+          echo "ZETHCODE_VERSION=$VERSION" >> "$GITHUB_ENV"
+
       - name: Run build script
         run: bun run ./packages/opencode/script/build.ts --os=windows --arch=${{ matrix.arch }}
 
