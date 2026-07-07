@@ -3,6 +3,7 @@ import { $ } from "bun"
 import pkg from "../package.json"
 import { Script } from "@zethrise/script"
 import { fileURLToPath } from "url"
+import fs from "fs"
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
@@ -30,12 +31,12 @@ for (const filepath of new Bun.Glob("*/package.json").scanSync({ cwd: "./dist" }
 console.log("binaries", Object.fromEntries(binaries.map((b) => [b.name, b.version])))
 const version = binaries[0].version
 
-await $`rm -rf ./dist/${pkg.name}`
-await $`mkdir -p ./dist/${pkg.name}`
-await $`cp -r ./bin ./dist/${pkg.name}/bin`
-await $`cp ./script/postinstall.mjs ./dist/${pkg.name}/postinstall.mjs`
+await fs.promises.rm(`./dist/${pkg.name}`, { recursive: true, force: true })
+await fs.promises.mkdir(`./dist/${pkg.name}`, { recursive: true })
+await fs.promises.cp("./bin", `./dist/${pkg.name}/bin`, { recursive: true })
+await fs.promises.copyFile("./script/postinstall.mjs", `./dist/${pkg.name}/postinstall.mjs`)
 await Bun.file(`./dist/${pkg.name}/LICENSE`).write(await Bun.file("../../LICENSE").text())
-await Bun.file(`./dist/${pkg.name}/README.md`).write(await Bun.file("../../README_npm.md").text())
+await Bun.file(`./dist/${pkg.name}/README.md`).write(await Bun.file("../../README.md").text())
 
 await Bun.file(`./dist/${pkg.name}/package.json`).write(
   JSON.stringify(
@@ -55,7 +56,7 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
       },
       keywords: ["ai", "cli", "code", "xiaomi", "mimo", "zethcode"],
       bin: {
-        mimo: "./bin/mimo",
+        zeth: "./bin/zeth",
       },
       scripts: {
         postinstall: "bun ./postinstall.mjs || node ./postinstall.mjs",
