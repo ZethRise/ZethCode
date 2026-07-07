@@ -1,59 +1,131 @@
 # Zeth Code
 
-Zeth Code is a terminal-native AI coding assistant built using SolidJS, SQLite FTS5, and the Bun/Effect runtime. It enables developers to pair program with model agents that have access to local file editing tools, terminal execution, Git repository management, and an advanced persistent memory system.
+<p align="center">
+  <a href="https://github.com/ZethRise/ZethCode/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/ZethRise/ZethCode?label=release&logo=github&color=0b9bd7"></a>
+  <a href="https://github.com/ZethRise/ZethCode/releases"><img alt="downloads" src="https://img.shields.io/github/downloads/ZethRise/ZethCode/total?label=downloads&logo=github&color=42c900"></a>
+  <a href="https://github.com/ZethRise/ZethCode/actions/workflows/build-windows.yml"><img alt="release build" src="https://img.shields.io/github/actions/workflow/status/ZethRise/ZethCode/build-windows.yml?branch=master&label=release&logo=github&color=42c900"></a>
+  <a href="./LICENSE"><img alt="license" src="https://img.shields.io/github/license/ZethRise/ZethCode?label=license&logo=github"></a>
+  <a href="https://github.com/ZethRise/ZethCode/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/ZethRise/ZethCode?label=Stars&logo=github"></a>
+</p>
 
-## Key Features
+<p align="center"><strong>Terminal-native AI coding assistant for local developer workflows.</strong></p>
 
-- **Terminal-Native TUI**: Beautiful and responsive terminal interface with solid layout rendering.
-- **Persistent Memory & Reconciler**: Automatic cross-session memory consolidation (`MEMORY.md` rules, checkpoints, gotchas) utilizing SQLite FTS5 lexical ranking.
-- **Multiple Specialized Agents**:
-  - `build` - Default mode with full tool execution permissions.
-  - `plan` - Read-only agent for architectural planning and research.
-  - `compose` - Orchestrator mode for running custom skills and composing complex pipelines.
-- **Custom Provider Integration**: Connect seamlessly to any OpenAI-compatible API or migration source (e.g. Claude Code configurations).
+Zeth Code is a fork of [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code), adapted under the ZethRise namespace with Windows release builds and the `zeth` command. It keeps the terminal-first agent workflow: read and edit code, run commands, manage Git, preserve project memory across sessions, and connect to OpenAI-compatible model providers.
 
-## Installation & Setup
+MiMo Code is built as a fork of [OpenCode](https://github.com/anomalyco/opencode). Zeth Code continues that lineage with a focus on standalone Windows binaries and a TUI-first experience.
 
-Ensure you have [Bun](https://bun.sh) installed.
+---
+
+## Quick Start
+
+Download the latest Windows executable from the [releases page](https://github.com/ZethRise/ZethCode/releases/latest):
+
+| Build | Use when |
+|-------|----------|
+| `zethcode-windows-x64.exe` | Most modern Intel/AMD Windows PCs |
+| `zethcode-windows-x64-baseline.exe` | Older x64 CPUs without newer instruction support |
+| `zethcode-windows-arm64.exe` | Windows on ARM devices |
+
+Run it from a terminal inside your project:
+
+```powershell
+.\zethcode-windows-x64.exe
+```
+
+For development from source:
 
 ```bash
-# Clone the repository
-git clone https://github.com/zethcode/zethcode.git
-cd zethcode
-
-# Install dependencies
+git clone https://github.com/ZethRise/ZethCode.git
+cd ZethCode
 bun install
-
-# Run the development TUI
 bun dev
 ```
 
-## Compilation
+---
 
-Build the single-target executable binary (`zeth`) using the built-in bundler script:
+## Core Features
 
-```bash
-# Rebuild production CLI executable
-bun run --cwd packages/opencode script/build.ts --single
-```
+### Terminal-Native TUI
 
-The compiled binary will be generated under `packages/opencode/dist/`.
+Zeth Code runs in the terminal and is built for coding sessions where the agent needs real project context, file access, shell access, and Git awareness.
+
+### Multiple Agents
+
+| Agent | Description |
+|-------|-------------|
+| `build` | Default development agent with tool execution |
+| `plan` | Read-only analysis mode for exploration and architecture |
+| `compose` | Orchestration mode for skill-driven and structured workflows |
+
+### Persistent Memory
+
+Project memory keeps useful context across sessions:
+
+- Project rules and architecture notes
+- Session checkpoints
+- Gotchas and repeated fixes
+- Task progress
+- Searchable local context backed by SQLite FTS5
+
+### Local Development Tools
+
+Agents can inspect files, edit code, run commands, work with Git state, and use project context directly from the current workspace.
+
+### Provider Support
+
+Use OpenAI-compatible providers and imported model configurations. Zeth Code keeps provider and model selection in the TUI so you can switch workflows without leaving the terminal.
+
+### Workflows and Skills
+
+Zeth Code includes the workflow and skill architecture inherited from MiMo Code, including structured development flows, compose-style orchestration, and reusable task instructions.
+
+---
 
 ## CLI Usage
 
 ```bash
-# Start TUI in the current workspace
+# Start the TUI in the current workspace
 zeth
 
-# Run Zeth Code with a single message query
-zeth run "refactor this index.ts file"
+# Run a single prompt
+zeth run "refactor this module and explain the change"
 
-# Manage project or global memory
+# Manage memory
 zeth memory list
-zeth memory add "use Bun APIs when possible"
+zeth memory add "prefer Bun APIs in this repository"
 zeth memory search "Bun APIs"
 ```
 
+---
+
+## Development
+
+```bash
+bun install              # Install dependencies
+bun dev                  # Run development TUI
+bun turbo typecheck      # Type check all packages
+```
+
+Build a local single-target executable:
+
+```bash
+bun run --cwd packages/opencode script/build.ts --single
+```
+
+Windows release builds are generated by `.github/workflows/build-windows.yml`.
+
+---
+
+## Relationship to MiMo Code
+
+Zeth Code is a fork of [XiaomiMiMo/MiMo-Code](https://github.com/XiaomiMiMo/MiMo-Code). Credit goes to the MiMo Code project for the core terminal agent system, persistent memory architecture, workflows, skills, provider support, and TUI foundation.
+
+This fork keeps the same spirit while publishing ZethRise-branded Windows binaries and release automation.
+
+---
+
 ## License
 
-MIT License.
+Source code is licensed under the [MIT License](./LICENSE).
+
+Use of this project is also subject to the [Use Restrictions](./USE_RESTRICTIONS.md).
