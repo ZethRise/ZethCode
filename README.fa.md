@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://github.com/ZethRise/ZethCode/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/ZethRise/ZethCode?label=release&logo=github&color=0b9bd7"></a>
   <a href="https://github.com/ZethRise/ZethCode/releases"><img alt="downloads" src="https://img.shields.io/github/downloads/ZethRise/ZethCode/total?label=downloads&logo=github&color=42c900"></a>
-  <a href="https://github.com/ZethRise/ZethCode/actions/workflows/build.yml"><img alt="builds" src="https://img.shields.io/github/actions/workflow/status/ZethRise/ZethCode/build-windows.yml?branch=master&label=release&logo=github&color=42c900"></a>
+  <a href="https://github.com/ZethRise/ZethCode/actions/workflows/build.yml"><img alt="builds" src="https://img.shields.io/github/actions/workflow/status/ZethRise/ZethCode/build.yml?branch=master&label=release&logo=github&color=42c900"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/github/license/ZethRise/ZethCode?label=license&logo=github"></a>
   <a href="https://github.com/ZethRise/ZethCode/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/ZethRise/ZethCode?label=Stars&logo=github"></a>
 </p>
@@ -33,6 +33,12 @@ zeth
 
 ```powershell
 irm https://raw.githubusercontent.com/ZethRise/ZethCode/master/install.ps1 | iex
+```
+
+نصب در Linux/macOS با curl:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ZethRise/ZethCode/master/scripts/install | bash
 ```
 
 یا فایل اجرایی مستقل ویندوز را از [صفحه انتشارها](https://github.com/ZethRise/ZethCode/releases/latest) دانلود کنید:

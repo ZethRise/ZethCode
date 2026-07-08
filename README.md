@@ -36,6 +36,12 @@ Install on Windows with PowerShell:
 irm https://raw.githubusercontent.com/ZethRise/ZethCode/master/install.ps1 | iex
 ```
 
+Install on Linux/macOS with curl:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ZethRise/ZethCode/master/scripts/install | bash
+```
+
 Or download a standalone Windows executable from the [releases page](https://github.com/ZethRise/ZethCode/releases/latest):
 
 | Build | Use when |
