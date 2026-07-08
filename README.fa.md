@@ -55,6 +55,29 @@ curl -fsSL https://raw.githubusercontent.com/ZethRise/ZethCode/master/scripts/in
 .\zethcode-windows-x64.exe
 ```
 
+### Linux
+
+فایل `.deb` یا `.AppImage` را از [صفحه انتشارها](https://github.com/ZethRise/ZethCode/releases/latest) دانلود کنید:
+
+| بیلد | مناسب برای |
+|------|------------|
+| `zethcode-linux-x64.deb` / `.AppImage` | بیشتر کامپیوترهای مدرن Linux با پردازنده Intel/AMD |
+| `zethcode-linux-arm64.deb` / `.AppImage` | دستگاه‌ها و سرورهای Linux ARM |
+
+نصب فایل `.deb`:
+
+```bash
+sudo dpkg -i zethcode-linux-x64.deb
+zeth
+```
+
+یا اجرای `.AppImage` بدون نیاز به root:
+
+```bash
+chmod +x zethcode-linux-x64.AppImage
+./zethcode-linux-x64.AppImage
+```
+
 برای توسعه از سورس:
 
 ```bash
@@ -135,7 +158,7 @@ bun turbo typecheck      # بررسی تایپ همه packageها
 bun run --cwd packages/opencode script/build.ts --single
 ```
 
-بیلدهای انتشار ویندوز با `.github/workflows/build-windows.yml` ساخته می‌شوند.
+بیلدهای انتشار با `.github/workflows/build.yml` ساخته می‌شوند، شامل فایل‌های `.exe` ویندوز و فایل‌های `.deb`/`.AppImage` لینوکس.
 
 ---
 
