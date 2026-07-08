@@ -1,6 +1,6 @@
 {
   "name": "@zethrise/ui",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "type": "module",
   "license": "MIT",
   "exports": {
@@ -74,4 +74,3 @@
     "virtua": "catalog:"
   }
 }
-

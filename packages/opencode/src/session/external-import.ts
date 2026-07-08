@@ -10,7 +10,7 @@ import { ClaudeImport } from "./claude-import"
 import { CodexImport } from "./codex-import"
 import { OpencodeImport, DEFAULT_DB_PATH } from "./opencode-import"
 
-const log = Log.create({ service: "external-import" })
+const log = Log.create({ service: "ext-import" })
 
 export type Source = "cc" | "codex" | "opencode"
 export const ALL_SOURCES: readonly Source[] = ["cc", "codex", "opencode"] as const

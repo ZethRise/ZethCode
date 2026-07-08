@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "name": "@zethrise/shared",
   "type": "module",
   "license": "MIT",
@@ -16,7 +16,6 @@
   "publishConfig": {
     "access": "public"
   },
-
   "scripts": {
     "test": "bun test",
     "typecheck": "tsgo --noEmit"
@@ -46,4 +45,3 @@
     "drizzle-orm": "catalog:"
   }
 }
-

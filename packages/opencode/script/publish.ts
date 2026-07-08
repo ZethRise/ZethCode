@@ -26,7 +26,7 @@ async function publish(dir: string, name: string, version: string) {
 const binaries: { dir: string; name: string; version: string }[] = []
 for (const filepath of new Bun.Glob("*/package.json").scanSync({ cwd: "./dist" })) {
   const p = await Bun.file(`./dist/${filepath}`).json()
-  binaries.push({ dir: `./dist/${filepath.replace("/package.json", "")}`, name: p.name, version: p.version })
+  binaries.push({ dir: `./dist/${filepath.replace(/[\/\\]package\.json$/, "")}`, name: p.name, version: p.version })
 }
 console.log("binaries", Object.fromEntries(binaries.map((b) => [b.name, b.version])))
 const version = binaries[0].version
@@ -68,9 +68,7 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
   ),
 )
 
-const tasks = binaries.map(async (b) => {
+for (const b of binaries) {
   await publish(b.dir, b.name, b.version)
-})
-await Promise.all(tasks)
+}
 await publish(`./dist/${pkg.name}`, pkg.name, version)
-

@@ -5,6 +5,83 @@ import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
 import { createSolidTransformPlugin } from "@opentui/solid/bun-plugin"
+import { existsSync, mkdirSync } from "fs"
+
+async function bundleCodebaseMemory(os: string, arch: string, destBinDir: string) {
+  const version = "v0.8.1"
+  let assetName = ""
+  
+  if (os === "linux") {
+    const targetArch = arch === "x64" ? "amd64" : "arm64"
+    assetName = `codebase-memory-mcp-linux-${targetArch}-portable.tar.gz`
+  } else if (os === "win32") {
+    assetName = `codebase-memory-mcp-windows-amd64.zip`
+  } else if (os === "darwin") {
+    const targetArch = arch === "x64" ? "amd64" : "arm64"
+    assetName = `codebase-memory-mcp-darwin-${targetArch}.tar.gz`
+  } else {
+    console.warn(`Unsupported OS for codebase-memory bundling: ${os}`)
+    return
+  }
+
+  const cacheDir = path.join(dir, ".cache-cbm")
+  if (!existsSync(cacheDir)) {
+    mkdirSync(cacheDir, { recursive: true })
+  }
+  
+  const archivePath = path.join(cacheDir, assetName)
+  if (!existsSync(archivePath)) {
+    const url = `https://github.com/DeusData/codebase-memory-mcp/releases/download/${version}/${assetName}`
+    console.log(`Downloading ${url}...`)
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`Failed to download ${url}: ${response.statusText}`)
+    }
+    await Bun.write(archivePath, response)
+  }
+
+  const tempExtractDir = path.join(cacheDir, `extract-${os}-${arch}`)
+  await $`rm -rf ${tempExtractDir}`
+  mkdirSync(tempExtractDir, { recursive: true })
+
+  const isZip = assetName.endsWith(".zip")
+  if (isZip) {
+    if (process.platform === "win32") {
+      await $`powershell -NoProfile -NonInteractive -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${tempExtractDir}' -Force"`
+    } else {
+      await $`unzip -q -o ${archivePath} -d ${tempExtractDir}`
+    }
+  } else {
+    await $`tar -xzf ${archivePath} -C ${tempExtractDir}`
+  }
+
+  const binExt = os === "win32" ? ".exe" : ""
+  const binaryName = `codebase-memory-mcp${binExt}`
+  const srcBinPath = path.join(tempExtractDir, binaryName)
+  const destBinPath = path.join(destBinDir, binaryName)
+  
+  if (existsSync(srcBinPath)) {
+    fs.copyFileSync(srcBinPath, destBinPath)
+    if (os !== "win32") {
+      fs.chmodSync(destBinPath, 0o755)
+    }
+    console.log(`Bundled ${binaryName} to ${destBinPath}`)
+  } else {
+    const files = await Array.fromAsync(new Bun.Glob(`**/${binaryName}`).scan({ cwd: tempExtractDir }))
+    if (files.length > 0) {
+      const foundPath = path.join(tempExtractDir, files[0])
+      fs.copyFileSync(foundPath, destBinPath)
+      if (os !== "win32") {
+        fs.chmodSync(destBinPath, 0o755)
+      }
+      console.log(`Bundled ${binaryName} to ${destBinPath}`)
+    } else {
+      throw new Error(`Binary ${binaryName} not found in extracted archive ${assetName}`)
+    }
+  }
+  
+  await $`rm -rf ${tempExtractDir}`
+}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -243,6 +320,7 @@ for (const item of targets) {
     .join("-")
   console.log(`building ${name}`)
   await $`mkdir -p dist/${name}/bin`
+  await bundleCodebaseMemory(item.os, item.arch, `dist/${name}/bin`)
 
   const localPath = path.resolve(dir, "node_modules/@opentui/core/parser.worker.js")
   const rootPath = path.resolve(dir, "../../node_modules/@opentui/core/parser.worker.js")

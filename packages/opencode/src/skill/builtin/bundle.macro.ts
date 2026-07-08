@@ -11,7 +11,7 @@ function walkDir(base: string, rel: string, out: Record<string, string>) {
     if (entry.isDirectory()) {
       walkDir(base, relPath, out)
     } else {
-      out[relPath] = fs.readFileSync(path.join(fullPath, entry.name), "utf8")
+      out[relPath] = fs.readFileSync(path.join(fullPath, entry.name), "utf8").replaceAll("\r\n", "\n")
     }
   }
 }

@@ -3,6 +3,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
+import path from "path"
+import { Global } from "../global"
 import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js"
 import {
   CallToolResultSchema,
@@ -283,6 +285,32 @@ export const layer = Layer.effect(
 
     const DISABLED_RESULT: CreateResult = { status: { status: "disabled" } }
 
+    const getMcpConfig = Effect.fnUntraced(function* (mcpName: string) {
+      const cfg = yield* cfgSvc.get()
+      const mcpConfig = cfg.mcp?.[mcpName]
+      if (mcpConfig && isMcpConfigured(mcpConfig)) return mcpConfig
+
+      if (mcpName === "codebase-memory") {
+        const binaryName = process.platform === "win32" ? "codebase-memory-mcp.exe" : "codebase-memory-mcp"
+        const bundled = path.join(path.dirname(process.execPath), binaryName)
+        const globalBin = path.join(Global.Path.bin, binaryName)
+        const binPath = (yield* Effect.promise(() => Bun.file(bundled).exists()))
+          ? bundled
+          : (yield* Effect.promise(() => Bun.file(globalBin).exists()))
+          ? globalBin
+          : undefined
+        if (binPath) {
+          return {
+            type: "local" as const,
+            command: [binPath],
+            enabled: true,
+          }
+        }
+      }
+
+      return undefined
+    })
+
     const connectRemote = Effect.fn("MCP.connectRemote")(function* (
       key: string,
       mcp: ConfigMCP.Info & { type: "remote" },
@@ -497,7 +525,13 @@ export const layer = Layer.effect(
       Effect.fn("MCP.state")(function* () {
         const cfg = yield* cfgSvc.get()
         const bridge = yield* EffectBridge.make()
-        const config = cfg.mcp ?? {}
+        const config = { ...cfg.mcp }
+        if (!config["codebase-memory"]) {
+          const builtin = yield* getMcpConfig("codebase-memory")
+          if (builtin) {
+            config["codebase-memory"] = builtin
+          }
+        }
         const s: State = {
           status: {},
           clients: {},
@@ -583,17 +617,7 @@ export const layer = Layer.effect(
 
     const status = Effect.fn("MCP.status")(function* () {
       const s = yield* InstanceState.get(state)
-
-      const cfg = yield* cfgSvc.get()
-      const config = cfg.mcp ?? {}
-      const result: Record<string, Status> = {}
-
-      for (const [key, mcp] of Object.entries(config)) {
-        if (!isMcpConfigured(mcp)) continue
-        result[key] = s.status[key] ?? { status: "disabled" }
-      }
-
-      return result
+      return s.status
     })
 
     const clients = Effect.fn("MCP.clients")(function* () {
@@ -732,12 +756,7 @@ export const layer = Layer.effect(
       })
     })
 
-    const getMcpConfig = Effect.fnUntraced(function* (mcpName: string) {
-      const cfg = yield* cfgSvc.get()
-      const mcpConfig = cfg.mcp?.[mcpName]
-      if (!mcpConfig || !isMcpConfigured(mcpConfig)) return undefined
-      return mcpConfig
-    })
+
 
     const startAuth = Effect.fn("MCP.startAuth")(function* (mcpName: string) {
       const mcpConfig = yield* getMcpConfig(mcpName)

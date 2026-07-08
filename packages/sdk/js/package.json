@@ -1,9 +1,15 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@zethrise/sdk",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "TypeScript SDK for the ZethCode API",
-  "keywords": ["mimo", "zethcode", "ai", "sdk", "coding-assistant"],
+  "keywords": [
+    "mimo",
+    "zethcode",
+    "ai",
+    "sdk",
+    "coding-assistant"
+  ],
   "type": "module",
   "license": "MIT",
   "author": "ZethRise",
@@ -47,4 +53,3 @@
     "cross-spawn": "catalog:"
   }
 }
-

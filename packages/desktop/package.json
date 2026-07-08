@@ -1,7 +1,7 @@
 {
   "name": "@zethrise/desktop",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.3",
   "type": "module",
   "license": "MIT",
   "homepage": "https://opencode.ai",
@@ -64,4 +64,3 @@
     "@lydell/node-pty-win32-x64": "1.2.0-beta.10"
   }
 }
-

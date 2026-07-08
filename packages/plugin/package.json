@@ -1,9 +1,15 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@zethrise/plugin",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Plugin SDK for extending ZethCode",
-  "keywords": ["mimo", "zethcode", "ai", "plugin", "coding-assistant"],
+  "keywords": [
+    "mimo",
+    "zethcode",
+    "ai",
+    "plugin",
+    "coding-assistant"
+  ],
   "type": "module",
   "license": "MIT",
   "author": "ZethRise",
@@ -57,4 +63,3 @@
     "@typescript/native-preview": "catalog:"
   }
 }
-

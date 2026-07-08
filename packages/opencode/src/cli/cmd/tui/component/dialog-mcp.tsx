@@ -7,6 +7,7 @@ import { useTheme } from "../context/theme"
 import { Keybind } from "@/util"
 import { TextAttributes } from "@opentui/core"
 import { useSDK } from "@tui/context/sdk"
+import { useDialog } from "@tui/ui/dialog"
 
 function Status(props: { enabled: boolean; loading: boolean }) {
   const { theme } = useTheme()
@@ -23,6 +24,9 @@ export function DialogMcp() {
   const local = useLocal()
   const sync = useSync()
   const sdk = useSDK()
+  const { theme } = useTheme()
+  const dialog = useDialog()
+  dialog.setSize("large")
   const [, setRef] = createSignal<DialogSelectRef<unknown>>()
   const [loading, setLoading] = createSignal<string | null>(null)
 
@@ -38,6 +42,7 @@ export function DialogMcp() {
       map(([name, status]) => ({
         value: name,
         title: name,
+        titleExtra: name === "codebase-memory" ? <span style={{ fg: theme.accent }}> built-in (native)</span> : undefined,
         description: status.status === "failed" ? "failed" : status.status,
         footer: <Status enabled={local.mcp.isEnabled(name)} loading={loadingMcp === name} />,
         category: undefined,

@@ -1,6 +1,6 @@
 {
   "name": "@zethrise/function",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "$schema": "https://json.schemastore.org/package.json",
   "private": true,
   "type": "module",
@@ -18,4 +18,3 @@
     "jose": "6.0.11"
   }
 }
-

@@ -1,6 +1,6 @@
 {
   "name": "@zethrise/app",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "",
   "type": "module",
   "exports": {
@@ -75,4 +75,3 @@
     "zod": "catalog:"
   }
 }
-
