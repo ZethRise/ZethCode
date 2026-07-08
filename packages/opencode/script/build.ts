@@ -9,6 +9,7 @@ import { existsSync, mkdirSync } from "fs"
 
 async function bundleCodebaseMemory(os: string, arch: string, destBinDir: string) {
   const version = "v0.8.1"
+  const downloadTimeoutMs = 120_000
   let assetName = ""
   
   if (os === "linux") {
@@ -33,11 +34,23 @@ async function bundleCodebaseMemory(os: string, arch: string, destBinDir: string
   if (!existsSync(archivePath)) {
     const url = `https://github.com/DeusData/codebase-memory-mcp/releases/download/${version}/${assetName}`
     console.log(`Downloading ${url}...`)
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`Failed to download ${url}: ${response.statusText}`)
+    const tmpArchivePath = `${archivePath}.tmp`
+    fs.rmSync(tmpArchivePath, { force: true })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), downloadTimeoutMs)
+    try {
+      const response = await fetch(url, { signal: controller.signal })
+      if (!response.ok) {
+        throw new Error(`Failed to download ${url}: ${response.statusText}`)
+      }
+      if (!response.body) {
+        throw new Error(`Failed to download ${url}: empty response body`)
+      }
+      await Bun.write(tmpArchivePath, response)
+      fs.renameSync(tmpArchivePath, archivePath)
+    } finally {
+      clearTimeout(timeout)
     }
-    await Bun.write(archivePath, response)
   }
 
   const tempExtractDir = path.join(cacheDir, `extract-${os}-${arch}`)
