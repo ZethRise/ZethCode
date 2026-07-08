@@ -52,7 +52,7 @@ Exec=zeth
 Icon=${PKG_NAME}
 Terminal=true
 Type=Application
-Categories=Development;Utility;"
+Categories=Development;"
 
 # -----------------------------------------------------------------------------
 # .deb
@@ -113,7 +113,8 @@ cp "$ICON_512" "$APPDIR/usr/share/icons/hicolor/512x512/apps/${PKG_NAME}.png"
 cp "$ICON_192" "$APPDIR/usr/share/icons/hicolor/192x192/apps/${PKG_NAME}.png"
 # appimagetool reads the .desktop from the AppDir root.
 printf '%s\n' "$DESKTOP_ENTRY" > "$APPDIR/${PKG_NAME}.desktop"
-# .DirIcon is the fallback icon some file managers read.
+# appimagetool expects the desktop Icon entry to exist at the AppDir root.
+cp "$ICON_512" "$APPDIR/${PKG_NAME}.png"
 cp "$ICON_192" "$APPDIR/.DirIcon"
 
 # AppRun: tiny launcher that execs the packaged binary with the caller's args.
