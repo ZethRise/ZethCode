@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://github.com/ZethRise/ZethCode/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/ZethRise/ZethCode?label=release&logo=github&color=0b9bd7"></a>
   <a href="https://github.com/ZethRise/ZethCode/releases"><img alt="downloads" src="https://img.shields.io/github/downloads/ZethRise/ZethCode/total?label=downloads&logo=github&color=42c900"></a>
-  <a href="https://github.com/ZethRise/ZethCode/actions/workflows/build-windows.yml"><img alt="windows build" src="https://img.shields.io/github/actions/workflow/status/ZethRise/ZethCode/build-windows.yml?branch=master&label=windows&logo=github&color=42c900"></a>
+  <a href="https://github.com/ZethRise/ZethCode/actions/workflows/build.yml"><img alt="builds" src="https://img.shields.io/github/actions/workflow/status/ZethRise/ZethCode/build-windows.yml?branch=master&label=windows&logo=github&color=42c900"></a>
   <a href="https://github.com/ZethRise/ZethCode/actions/workflows/build-linux.yml"><img alt="linux build" src="https://img.shields.io/github/actions/workflow/status/ZethRise/ZethCode/build-linux.yml?branch=master&label=linux&logo=github&color=42c900"></a>
   <a href="./LICENSE"><img alt="license" src="https://img.shields.io/github/license/ZethRise/ZethCode?label=license&logo=github"></a>
   <a href="https://github.com/ZethRise/ZethCode/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/ZethRise/ZethCode?label=Stars&logo=github"></a>
