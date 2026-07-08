@@ -68,15 +68,7 @@ diff --git a/index-ekbq0zm9.js b/index-ekbq0zm9.js
 index 99885588fa1e735d584848f351f811554f23627b..992e3d7ec1c1cfd59d3611d7c380f1fdf54227ea 100644
 --- a/index-ekbq0zm9.js
 +++ b/index-ekbq0zm9.js
-@@ -9489,6 +9489,7 @@ class MarkdownRenderable extends Renderable {
-       onChunks: this._linkifyMarkdownChunks,
-       treeSitterClient: this._treeSitterClient,
-       width: "100%",
-+      wrapMode: "word",
-       marginBottom
-     });
-   }
-@@ -9517,6 +9518,7 @@ class MarkdownRenderable extends Renderable {
+@@ -9517,4 +9518,5 @@ class MarkdownRenderable extends Renderable {
      renderable.drawUnstyledText = false;
      renderable.streaming = true;
 +    renderable.wrapMode = "word";
