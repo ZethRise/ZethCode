@@ -138,10 +138,10 @@ chmod +x "$TOOL_DIR/appimagetool"
 
 APPIMAGE_OUT="${DIST_DIR}/zethcode-linux-${ARCH}.AppImage"
 # ARCH tells appimagetool which runtime to embed; --no-appstream skips
-# AppStream validation (needs appstreamcli); --no-sign skips GPG signing.
+# AppStream validation (needs appstreamcli). Signing is opt-in.
 ARCH="${APPIMAGE_ARCH}" NO_STRIP=true \
   "$TOOL_DIR/squashfs-root/AppRun" "$APPDIR" "$APPIMAGE_OUT" \
-  --no-appstream --no-sign
+  --no-appstream
 echo "    -> $APPIMAGE_OUT"
 
 echo "==> done"
