@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to publish. Empty uses packages/opencode/package.json."
+        description: "Version to publish (e.g. 1.0.5). Empty uses packages/opencode/package.json."
         required: false
         type: string
-        default: ""
+        default: "1.0.5"
       npm_tag:
         description: "npm dist-tag"
         required: true

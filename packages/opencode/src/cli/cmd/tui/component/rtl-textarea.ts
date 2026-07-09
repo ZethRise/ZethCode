@@ -12,10 +12,20 @@ export class RTLTextareaRenderable extends TextareaRenderable {
     return Array.from(text).length
   }
 
-  private drawCompactText(buffer: OptimizedBuffer, text: string, x: number, y: number) {
-    Array.from(text).forEach((char, index) => {
-      buffer.setCell(x + index, y, char, this.textColor, this._backgroundColor)
-    })
+  private drawCompactText(buffer: OptimizedBuffer, text: string, x: number, y: number, width: number) {
+    Array.from(text)
+      .slice(0, width)
+      .forEach((char, index) => {
+        buffer.setCell(x + index, y, char, this.textColor, this._backgroundColor)
+      })
+  }
+
+  private wrapLine(line: string, width: number) {
+    const chars = Array.from(line)
+    if (chars.length === 0) return [""]
+    return Array.from({ length: Math.ceil(chars.length / width) }, (_, index) =>
+      chars.slice(index * width, (index + 1) * width).join(""),
+    )
   }
 
   protected override renderSelf(buffer: OptimizedBuffer) {
@@ -25,15 +35,32 @@ export class RTLTextareaRenderable extends TextareaRenderable {
     }
 
     buffer.fillRect(this.x, this.y, this.width, this.height, this._backgroundColor)
-    this.plainText.split("\n").slice(0, this.height).forEach((line, y) => {
-      const cursor = this.logicalCursor.row === y ? this.logicalCursor.col : -1
-      const text = rtlVisual(line)
-      const x = this.x + Math.max(1, this.width - this.textWidth(text) - 1)
+    const width = Math.max(1, this.width - 2)
+    const rows = this.plainText.split("\n").flatMap((line, row) =>
+      this.wrapLine(line, width).map((text, wrap) => ({ text, row, wrap })),
+    )
+    const cursorWrap = Math.min(
+      Math.floor(this.logicalCursor.col / width),
+      Math.max(0, rows.filter((row) => row.row === this.logicalCursor.row).length - 1),
+    )
+    const cursorRow = rows.findIndex((row) => row.row === this.logicalCursor.row && row.wrap === cursorWrap)
+    const offset = Math.max(0, Math.min(cursorRow < 0 ? 0 : cursorRow, rows.length - this.height))
 
-      this.drawCompactText(buffer, text, x, this.y + y)
+    rows.slice(offset, offset + this.height).forEach((row, y) => {
+      const cursor =
+        this.logicalCursor.row === row.row && cursorWrap === row.wrap
+          ? this.logicalCursor.col >= (cursorWrap + 1) * width
+            ? width
+            : this.logicalCursor.col % width
+          : -1
+      const text = rtlVisual(row.text)
+      const drawWidth = Math.max(0, this.width - 2)
+      const x = this.x + Math.max(1, this.width - Math.min(this.textWidth(text), drawWidth) - 1)
+
+      this.drawCompactText(buffer, text, x, this.y + y, drawWidth)
       if (cursor >= 0) {
-        const visual = rtlVisualWithCursor(line, cursor)
-        this.rtlCursor = { x: x + this.textWidth(visual.before), y }
+        const visual = rtlVisualWithCursor(row.text, cursor)
+        this.rtlCursor = { x: Math.min(x + this.textWidth(visual.before), this.x + this.width - 1), y }
       }
     })
   }

@@ -1,6 +1,6 @@
 {
   "name": "@zethrise/enterprise",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -15,7 +15,7 @@
   "dependencies": {
     "@zethrise/shared": "workspace:*",
     "@zethrise/ui": "workspace:*",
-    "aws4fetch": "^1.0.20",
+    "aws4fetch": "^1.0.50",
     "@pierre/diffs": "catalog:",
     "@solidjs/router": "catalog:",
     "@solidjs/start": "catalog:",

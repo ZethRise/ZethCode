@@ -9,10 +9,10 @@ on:
         required: false
         default: false
       version:
-        description: 'Release version (optional, e.g. 1.0.2. If empty, uses version from package.json)'
+        description: 'Release version (optional, e.g. 1.0.5. If empty, uses version from package.json)'
         type: string
         required: false
-        default: '1.0.2'
+        default: '1.0.5'
 
 permissions:
   contents: write

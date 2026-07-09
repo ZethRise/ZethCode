@@ -32,6 +32,7 @@ export const Info = z.object({
   content: z.string(),
   hidden: z.boolean().optional(),
   bundled: z.boolean().optional(),
+  disableModelInvocation: z.boolean().optional(),
 })
 export type Info = z.infer<typeof Info>
 
@@ -97,7 +98,9 @@ const add = Effect.fnUntraced(function* (state: State, match: string, bundledRoo
 
   if (!md) return
 
-  const parsed = Info.pick({ name: true, description: true, hidden: true }).safeParse(md.data)
+  const parsed = Info.pick({ name: true, description: true, hidden: true })
+    .extend({ "disable-model-invocation": z.boolean().optional() })
+    .safeParse(md.data)
   if (!parsed.success) return
 
   const isBundled = bundledRoots.some((root) => match.startsWith(root))
@@ -125,6 +128,7 @@ const add = Effect.fnUntraced(function* (state: State, match: string, bundledRoo
     content: md.content,
     hidden: parsed.data.hidden,
     bundled: isBundled || undefined,
+    disableModelInvocation: parsed.data["disable-model-invocation"],
   }
 })
 
@@ -305,6 +309,7 @@ export const layer = Layer.effect(
       const s = yield* InstanceState.get(state)
       let list: Info[] = Object.values(s.skills)
         .filter((sk) => !sk.hidden)
+        .filter((sk) => !agent || !sk.disableModelInvocation)
 
       list = list.toSorted((a, b) => a.name.localeCompare(b.name))
       if (!agent) return list

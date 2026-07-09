@@ -20,15 +20,16 @@ MiMo Code is built as a fork of [OpenCode](https://github.com/anomalyco/opencode
 
 ---
 
-## What's New in v1.0.4
+## What's New in v1.0.5
 
-- Better TUI productivity tools: `/context`, `/tokens`, context trimming commands, prompt enhancement, full scrollback, and a cleaner source control sidebar.
-- Stronger project memory: automatic project memory checks, memory trace view, memory health checks, and reindex support.
-- Built-in Context7 MCP support for fresher documentation context during web search and old-doc checks.
-- Workspace-less mode for sessions that do not need a local project folder.
-- Connector scaffolding with a local `.zethcode/connectors/registry.json`.
-- Better RTL/Persian rendering and provider stability on Windows/OpenAI-compatible backends.
-- Windows uninstall script support with `uninstall.ps1`.
+- More reliable TUI streaming: buffered out-of-order text deltas so assistant messages stop randomly disappearing mid-stream.
+- Better Persian/RTL handling in the prompt and message bubbles, including safer wrapping when Persian and English text are mixed.
+- AgentRouter compatibility fix: billing summary SSE events are ignored before they reach the model stream parser.
+- `/context` now scrolls and shows user/assistant token breakdown, plus total visible messages.
+- New `/search` command for jumping to matching text inside the current session.
+- Skill loading now respects `disable-model-invocation: true`, keeping manual-only skills out of model-visible skill lists.
+- Windows terminal paste is more reliable through `ENABLE_VIRTUAL_TERMINAL_INPUT`, improving Ctrl+V and bracketed paste behavior.
+- Sidebar now shows live agent status and the latest tool activity.
 
 ---
 

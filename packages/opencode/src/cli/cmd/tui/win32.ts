@@ -3,6 +3,7 @@ import type { ReadStream } from "node:tty"
 
 const STD_INPUT_HANDLE = -10
 const ENABLE_PROCESSED_INPUT = 0x0001
+const ENABLE_VIRTUAL_TERMINAL_INPUT = 0x0200
 
 const kernel = () =>
   dlopen("kernel32.dll", {
@@ -37,8 +38,9 @@ export function win32DisableProcessedInput() {
   if (k32!.symbols.GetConsoleMode(handle, ptr(buf)) === 0) return
 
   const mode = buf[0]!
-  if ((mode & ENABLE_PROCESSED_INPUT) === 0) return
-  k32!.symbols.SetConsoleMode(handle, mode & ~ENABLE_PROCESSED_INPUT)
+  const next = (mode & ~ENABLE_PROCESSED_INPUT) | ENABLE_VIRTUAL_TERMINAL_INPUT
+  if (next === mode) return
+  k32!.symbols.SetConsoleMode(handle, next)
 }
 
 /**
@@ -84,8 +86,9 @@ export function win32InstallCtrlCGuard() {
   const enforce = () => {
     if (k32!.symbols.GetConsoleMode(handle, ptr(buf)) === 0) return
     const mode = buf[0]!
-    if ((mode & ENABLE_PROCESSED_INPUT) === 0) return
-    k32!.symbols.SetConsoleMode(handle, mode & ~ENABLE_PROCESSED_INPUT)
+    const next = (mode & ~ENABLE_PROCESSED_INPUT) | ENABLE_VIRTUAL_TERMINAL_INPUT
+    if (next === mode) return
+    k32!.symbols.SetConsoleMode(handle, next)
   }
 
   // Some runtimes can re-apply console modes on the next tick; enforce twice.

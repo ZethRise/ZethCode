@@ -26,6 +26,24 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
     if (!info) return "unknown"
     return `${info.type}: ${info.name}`
   }
+  const status = createMemo(() => sync.data.session_status[props.sessionID] ?? { type: "idle" })
+  const lastTool = createMemo(() =>
+    Object.values(sync.data.message[props.sessionID] ?? {})
+      .flat()
+      .findLast((msg) => msg.role === "assistant")
+      ?.id,
+  )
+  const lastToolText = createMemo(() =>
+    lastTool()
+      ? (sync.data.part[lastTool()!] ?? [])
+          .flatMap((part) =>
+            part.type === "tool" && (part.state.status === "running" || part.state.status === "completed")
+              ? [`${part.tool}: ${part.state.title ?? part.state.status}`]
+              : [],
+          )
+          .at(-1)
+      : undefined,
+  )
   const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
 
   return (
@@ -74,6 +92,19 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 <Show when={session()!.share?.url}>
                   <text fg={theme.textMuted}>{session()!.share!.url}</text>
                 </Show>
+                <box paddingTop={1}>
+                  <text fg={theme.textMuted}>
+                    <b>Agent status</b>
+                  </text>
+                  <text fg={status().type === "retry" ? theme.error : status().type === "busy" ? theme.warning : theme.success}>
+                    {status().type}
+                  </text>
+                  <Show when={lastToolText()}>
+                    <text fg={theme.textMuted} wrapMode="word">
+                      {lastToolText()}
+                    </text>
+                  </Show>
+                </box>
               </box>
             </TuiPluginRuntime.Slot>
             <TuiPluginRuntime.Slot name="sidebar_content" session_id={props.sessionID} />

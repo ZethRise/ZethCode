@@ -319,6 +319,8 @@ export function Session() {
       <DialogWhy
         session={info}
         messages={messages()}
+        status={sync.data.session_status[info.id]?.type ?? "unknown"}
+        parts={(messageID) => sync.data.part[messageID] ?? []}
         memoryPath={projectMemoryPath()}
         memoryExists={projectMemoryExists()}
         memoryChecking={projectMemoryExists.loading}
@@ -443,6 +445,24 @@ export function Session() {
 
     const child = scroll.getChildren().find((c) => c.id === targetID)
     if (child) scroll.scrollBy(child.y - scroll.y - 1)
+    dialog.clear()
+  }
+
+  const searchMessages = async (dialog: ReturnType<typeof useDialog>) => {
+    const query = (await DialogPrompt.show(dialog, "/search", { placeholder: "Search current session..." }))?.trim()
+    if (!query) return
+    const target = messages().find((msg) =>
+      (sync.data.part[msg.id] ?? []).some(
+        (part) => part.type === "text" && !part.synthetic && part.text.toLowerCase().includes(query.toLowerCase()),
+      ),
+    )
+    if (!target) {
+      toast.show({ message: `No match for "${query}"`, variant: "warning" })
+      return
+    }
+    const child = scroll.getChildren().find((item) => item.id === target.id)
+    if (!child) return
+    scroll.scrollBy(child.y - scroll.y - 1)
     dialog.clear()
   }
 
@@ -966,6 +986,16 @@ export function Session() {
       category: "session",
       hidden: true,
       onSelect: (dialog) => scrollToMessage("prev", dialog),
+    },
+    {
+      title: "Search messages",
+      value: "session.messages.search",
+      keybind: "messages_search",
+      category: "session",
+      slash: {
+        name: "search",
+      },
+      onSelect: searchMessages,
     },
     {
       title: t("tui.command.messages.copy.title"),
@@ -1542,6 +1572,8 @@ function SessionMemoryBanner(props: {
 function DialogWhy(props: {
   session: SDKSession
   messages: Message[]
+  status: string
+  parts: (messageID: string) => Part[]
   memoryPath: string
   memoryExists?: boolean
   memoryChecking: boolean
@@ -1552,21 +1584,18 @@ function DialogWhy(props: {
   const dialog = useDialog()
   const sdk = useSDK()
   const toast = useToast()
-  const ctx = use()
   const lastUser = createMemo(() => props.messages.findLast((item) => item.role === "user"))
   const lastAssistant = createMemo(() => props.messages.findLast((item) => item.role === "assistant"))
   const text = (message?: Message) => {
     if (!message) return "(none)"
     return (
-      ctx.sync.data.part[message.id]?.flatMap((part) =>
+      props.parts(message.id).flatMap((part) =>
         part.type === "text" && !part.synthetic ? [Locale.truncate(part.text.replace(/\s+/g, " ").trim(), 160)] : [],
       )[0] || "(no text)"
     )
   }
   const toolParts = createMemo(() =>
-    lastAssistant()
-      ? (ctx.sync.data.part[lastAssistant()!.id] ?? []).flatMap((part) => (part.type === "tool" ? [part] : []))
-      : [],
+    lastAssistant() ? props.parts(lastAssistant()!.id).flatMap((part) => (part.type === "tool" ? [part] : [])) : [],
   )
   const assistantError = createMemo(() => {
     const err = lastAssistant()?.error as { message?: unknown } | undefined
@@ -1617,7 +1646,7 @@ function DialogWhy(props: {
       </box>
       {row("session", `${props.session.title} (${props.session.id})`)}
       {row("project", props.session.directory)}
-      {row("status", ctx.sync.data.session_status[props.session.id]?.type ?? "unknown")}
+      {row("status", props.status)}
       {row("agent", lastAssistant()?.agent ?? lastUser()?.agent ?? "unknown")}
       {row(
         "model",
@@ -1699,6 +1728,7 @@ function DialogContextPanel(props: {
 }) {
   const { theme } = useTheme()
   const dialog = useDialog()
+  const tuiConfig = useTuiConfig()
   const visible = createMemo(() => {
     const revert = props.session.revert?.messageID
     return props.messages.filter((msg) => !revert || msg.id < revert)
@@ -1713,6 +1743,10 @@ function DialogContextPanel(props: {
     )
   }
   const total = createMemo(() => visible().reduce((sum, msg) => sum + estimate(msg), 0))
+  const userTotal = createMemo(() => visible().reduce((sum, msg) => sum + (msg.role === "user" ? estimate(msg) : 0), 0))
+  const assistantTotal = createMemo(() =>
+    visible().reduce((sum, msg) => sum + (msg.role === "assistant" ? estimate(msg) : 0), 0),
+  )
   const percent = createMemo(() =>
     props.modelLimit ? Math.min(100, Math.round((total() / props.modelLimit) * 100)) : 0,
   )
@@ -1736,27 +1770,34 @@ function DialogContextPanel(props: {
         </Show>
       </box>
       <text fg={theme.textMuted}>/drop latest turn, /clear all turns, /reset restore</text>
-      <For each={visible().slice(-20)}>
-        {(msg) => (
-          <box flexDirection="row" gap={1}>
-            <text width={10} fg={msg.role === "assistant" ? theme.accent : theme.success}>
-              {msg.role}
-            </text>
-            <text width={9} fg={theme.textMuted}>
-              {estimate(msg).toLocaleString()}
-            </text>
-            <text fg={theme.textMuted} wrapMode="none">
-              {Locale.truncate(
-                props
-                  .parts(msg.id)
-                  .flatMap((part) => (part.type === "text" && !part.synthetic ? [part.text.replace(/\s+/g, " ")] : []))
-                  .join(" "),
-                80,
-              )}
-            </text>
-          </box>
-        )}
-      </For>
+      <text fg={theme.textMuted}>
+        user {userTotal().toLocaleString()} · assistant {assistantTotal().toLocaleString()} · {visible().length} messages
+      </text>
+      <scrollbox flexGrow={1} scrollAcceleration={getScrollAcceleration(tuiConfig)}>
+        <For each={visible()}>
+          {(msg) => (
+            <box flexDirection="row" gap={1}>
+              <text width={10} fg={msg.role === "assistant" ? theme.accent : theme.success}>
+                {msg.role}
+              </text>
+              <text width={9} fg={theme.textMuted}>
+                {estimate(msg).toLocaleString()}
+              </text>
+              <text fg={theme.textMuted} wrapMode="none">
+                {Locale.truncate(
+                  props
+                    .parts(msg.id)
+                    .flatMap((part) =>
+                      part.type === "text" && !part.synthetic ? [part.text.replace(/\s+/g, " ")] : [],
+                    )
+                    .join(" "),
+                  80,
+                )}
+              </text>
+            </box>
+          )}
+        </For>
+      </scrollbox>
     </box>
   )
 }
@@ -1863,9 +1904,16 @@ function UserMessage(props: {
             backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
             flexShrink={0}
           >
-            <Show when={rtl()} fallback={<text fg={theme.text}>{text()?.text}</text>}>
+            <Show
+              when={rtl()}
+              fallback={
+                <text fg={theme.text} wrapMode="word" width="100%">
+                  {text()?.text}
+                </text>
+              }
+            >
               <box width="100%" alignItems="flex-end">
-                <text fg={theme.text} wrapMode="word">
+                <text fg={theme.text} wrapMode="word" width="100%">
                   {displayText()}
                 </text>
               </box>

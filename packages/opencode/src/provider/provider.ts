@@ -99,6 +99,60 @@ function wrapSSE(res: Response, ms: number, ctl: AbortController) {
   })
 }
 
+function dropAgentRouterBillingSSE(res: Response) {
+  if (!res.body) return res
+  if (!res.headers.get("content-type")?.includes("text/event-stream")) return res
+
+  const encoder = new TextEncoder()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  const skip = (event: string) => {
+    const data = event
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n")
+    if (!data || data === "[DONE]") return false
+    try {
+      const parsed = JSON.parse(data)
+      return parsed?.object === "billing.summary"
+    } catch {
+      return false
+    }
+  }
+  const next = () => {
+    const lf = buffer.indexOf("\n\n")
+    const crlf = buffer.indexOf("\r\n\r\n")
+    if (lf === -1) return crlf
+    if (crlf === -1) return lf
+    return Math.min(lf, crlf)
+  }
+
+  const body = res.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, ctrl) {
+        buffer += decoder.decode(chunk, { stream: true })
+        for (let index = next(); index !== -1; index = next()) {
+          const separator = buffer.startsWith("\r\n\r\n", index) ? 4 : 2
+          const event = buffer.slice(0, index)
+          if (!skip(event)) ctrl.enqueue(encoder.encode(buffer.slice(0, index + separator)))
+          buffer = buffer.slice(index + separator)
+        }
+      },
+      flush(ctrl) {
+        buffer += decoder.decode()
+        if (buffer && !skip(buffer)) ctrl.enqueue(encoder.encode(buffer))
+      },
+    }),
+  )
+
+  return new Response(body, {
+    headers: new Headers(res.headers),
+    status: res.status,
+    statusText: res.statusText,
+  })
+}
+
 type BundledSDK = {
   languageModel(modelId: string): LanguageModelV3
 }
@@ -1656,12 +1710,13 @@ const layer: Layer.Layer<
           const combined = signals.length === 0 ? null : signals.length === 1 ? signals[0] : AbortSignal.any(signals)
           if (combined) opts.signal = combined
 
-          const res = await fetchFn(input, {
+          let res = await fetchFn(input, {
             ...opts,
             // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
             timeout: false,
           })
 
+          if (model.providerID === "agentrouter") res = dropAgentRouterBillingSSE(res)
           if (!chunkAbortCtl) return res
           return wrapSSE(res, chunkTimeout, chunkAbortCtl)
         }
