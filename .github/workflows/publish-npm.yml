@@ -1,0 +1,134 @@
+name: publish npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish. Empty uses packages/opencode/package.json."
+        required: false
+        type: string
+        default: ""
+      npm_tag:
+        description: "npm dist-tag"
+        required: true
+        type: string
+        default: "latest"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-linux:
+    name: Build Linux x64
+    runs-on: ubuntu-latest
+    env:
+      ZETHCODE_CHANNEL: ${{ inputs.npm_tag }}
+      ZETHCODE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Build SDK
+        run: bun run ./packages/sdk/js/script/build.ts
+
+      - name: Build Linux x64 package
+        run: bun run ./packages/opencode/script/build.ts --os=linux --arch=x64
+
+      - name: Upload Linux package
+        uses: actions/upload-artifact@v4
+        with:
+          name: zethcode-linux-x64-npm
+          path: packages/opencode/dist/zethcode-linux-x64/**
+
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-latest
+    env:
+      ZETHCODE_CHANNEL: ${{ inputs.npm_tag }}
+      ZETHCODE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Build SDK
+        run: bun run ./packages/sdk/js/script/build.ts
+
+      - name: Build Windows x64 package
+        run: bun run ./packages/opencode/script/build.ts --os=windows --arch=x64
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: zethcode-windows-x64-npm
+          path: packages/opencode/dist/zethcode-windows-x64/**
+
+  publish:
+    name: Publish npm packages
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-windows]
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      ZETHCODE_CHANNEL: ${{ inputs.npm_tag }}
+      ZETHCODE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Setup npm registry
+        uses: actions/setup-node@v4
+        with:
+          registry-url: "https://registry.npmjs.org"
+          scope: "@zethrise"
+
+      - name: Resolve publish version
+        shell: bash
+        run: |
+          if [ -z "${ZETHCODE_VERSION}" ]; then
+            VERSION=$(bun -e 'console.log(JSON.parse(await Bun.file("packages/opencode/package.json").text()).version)')
+            echo "ZETHCODE_VERSION=${VERSION}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Check npm token
+        shell: bash
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::error::Missing NPM_TOKEN repository secret."
+            exit 1
+          fi
+
+      - name: Download Linux package
+        uses: actions/download-artifact@v4
+        with:
+          name: zethcode-linux-x64-npm
+          path: packages/opencode/dist/zethcode-linux-x64
+
+      - name: Download Windows package
+        uses: actions/download-artifact@v4
+        with:
+          name: zethcode-windows-x64-npm
+          path: packages/opencode/dist/zethcode-windows-x64
+
+      - name: Publish shared package
+        shell: bash
+        run: |
+          if npm view "@zethrise/shared@${ZETHCODE_VERSION}" version >/dev/null 2>&1; then
+            echo "already published @zethrise/shared@${ZETHCODE_VERSION}"
+            exit 0
+          fi
+          npm publish ./packages/shared --access public --tag "${ZETHCODE_CHANNEL}"
+
+      - name: Publish binary packages and CLI
+        run: bun run ./packages/opencode/script/publish.ts
