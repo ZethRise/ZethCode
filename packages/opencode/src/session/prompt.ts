@@ -206,6 +206,16 @@ const log = Log.create({ service: "session.prompt" })
 function isExtensionPath(filePath: string): boolean {
   return /\/\.zethcode\/(tools?|skills?|hooks?)\//.test(filePath)
 }
+
+function wantsCurrentDocs(messages: MessageV2.WithParts[]) {
+  const text = userQueryText(messages.findLast((msg) => msg.info.role === "user")?.parts ?? []).toLowerCase()
+  if (!text) return false
+  if (text.includes("use context7") || text.includes("context7") || text.includes("old docs") || text.includes("outdated docs")) return true
+  return (
+    /\b(docs?|documentation|api|sdk|library|package|framework)\b/.test(text) &&
+    /\b(current|latest|up.?to.?date|version|v\d+|new syntax|deprecated|migration|setup|configure|install)\b/.test(text)
+  )
+}
 const elog = EffectLogger.create({ service: "session.prompt" })
 
 export interface Interface {
@@ -762,6 +772,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         }.`,
         metadata: { rejected: true, reason: "tool-whitelist" as const },
       })
+      if (wantsCurrentDocs(input.messages)) {
+        const status: Record<string, { status: string }> = yield* mcp.status().pipe(Effect.catch(() => Effect.succeed({})))
+        if (status.context7?.status !== "connected") yield* mcp.connect("context7").pipe(Effect.ignore)
+      }
 
       const context = (args: any, options: ToolExecutionOptions): Tool.Context => ({
         sessionID: input.session.id,
@@ -860,6 +874,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
                   yield* input.processor.completeToolCall(options.toolCallId, cancelOutput)
                   return cancelOutput
                 }
+                if (item.id === "websearch") yield* mcp.connect("context7").pipe(Effect.ignore)
                 const result = yield* item.execute(beforeOutput.args, ctx)
                 log.debug("tool execute done", {
                   tool: item.id,

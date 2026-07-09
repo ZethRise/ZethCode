@@ -285,10 +285,19 @@ export const layer = Layer.effect(
 
     const DISABLED_RESULT: CreateResult = { status: { status: "disabled" } }
 
-    const getMcpConfig = Effect.fnUntraced(function* (mcpName: string) {
-      const cfg = yield* cfgSvc.get()
-      const mcpConfig = cfg.mcp?.[mcpName]
-      if (mcpConfig && isMcpConfigured(mcpConfig)) return mcpConfig
+    const builtinMcpConfig = Effect.fnUntraced(function* (mcpName: string) {
+      if (mcpName === "context7") {
+        return {
+          type: "remote" as const,
+          url: "https://mcp.context7.com/mcp",
+          enabled: false,
+          oauth: false as const,
+          timeout: 15_000,
+          ...(process.env.CONTEXT7_API_KEY
+            ? { headers: { CONTEXT7_API_KEY: process.env.CONTEXT7_API_KEY } }
+            : {}),
+        }
+      }
 
       if (mcpName === "codebase-memory") {
         const binaryName = process.platform === "win32" ? "codebase-memory-mcp.exe" : "codebase-memory-mcp"
@@ -297,8 +306,8 @@ export const layer = Layer.effect(
         const binPath = (yield* Effect.promise(() => Bun.file(bundled).exists()))
           ? bundled
           : (yield* Effect.promise(() => Bun.file(globalBin).exists()))
-          ? globalBin
-          : undefined
+            ? globalBin
+            : undefined
         if (binPath) {
           return {
             type: "local" as const,
@@ -309,6 +318,13 @@ export const layer = Layer.effect(
       }
 
       return undefined
+    })
+
+    const getMcpConfig = Effect.fnUntraced(function* (mcpName: string) {
+      const cfg = yield* cfgSvc.get()
+      const mcpConfig = cfg.mcp?.[mcpName]
+      if (mcpConfig && isMcpConfigured(mcpConfig)) return mcpConfig
+      return yield* builtinMcpConfig(mcpName)
     })
 
     const connectRemote = Effect.fn("MCP.connectRemote")(function* (
@@ -526,10 +542,11 @@ export const layer = Layer.effect(
         const cfg = yield* cfgSvc.get()
         const bridge = yield* EffectBridge.make()
         const config = { ...cfg.mcp }
-        if (!config["codebase-memory"]) {
-          const builtin = yield* getMcpConfig("codebase-memory")
+        for (const name of ["codebase-memory", "context7"]) {
+          if (config[name]) continue
+          const builtin = yield* getMcpConfig(name)
           if (builtin) {
-            config["codebase-memory"] = builtin
+            config[name] = builtin
           }
         }
         const s: State = {
@@ -677,7 +694,7 @@ export const layer = Layer.effect(
         connectedClients,
         ([clientName, client]) =>
           Effect.gen(function* () {
-            const mcpConfig = config[clientName]
+            const mcpConfig = config[clientName] ?? (yield* builtinMcpConfig(clientName))
             const entry = mcpConfig && isMcpConfigured(mcpConfig) ? mcpConfig : undefined
 
             const listed = s.defs[clientName]
@@ -686,7 +703,7 @@ export const layer = Layer.effect(
               return
             }
 
-            const timeout = entry?.timeout ?? defaultTimeout
+            const timeout = entry && "timeout" in entry ? entry.timeout ?? defaultTimeout : defaultTimeout
             for (const mcpTool of listed) {
               result[sanitize(clientName) + "_" + sanitize(mcpTool.name)] = convertMcpTool(mcpTool, client, timeout)
             }
@@ -823,7 +840,8 @@ export const layer = Layer.effect(
           return { status: "failed", error: "MCP config not found after auth" } as Status
         }
 
-        const listed = client ? yield* defs(mcpName, client, mcpConfig.timeout) : undefined
+        const timeout = "timeout" in mcpConfig ? mcpConfig.timeout : undefined
+        const listed = client ? yield* defs(mcpName, client, timeout) : undefined
         if (!client || !listed) {
           yield* Effect.tryPromise(() => client?.close() ?? Promise.resolve()).pipe(Effect.ignore)
           return { status: "failed", error: "Failed to get tools" } as Status
@@ -831,7 +849,7 @@ export const layer = Layer.effect(
 
         const s = yield* InstanceState.get(state)
         yield* auth.clearOAuthState(mcpName)
-        return yield* storeClient(s, mcpName, client, listed, mcpConfig.timeout)
+        return yield* storeClient(s, mcpName, client, listed, timeout)
       }
 
       log.info("opening browser for oauth", { mcpName, url: result.authorizationUrl, state: result.oauthState })
