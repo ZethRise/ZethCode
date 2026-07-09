@@ -22,6 +22,7 @@ import { ProjectRoutes } from "./project"
 import { SessionRoutes } from "./session"
 import { PtyRoutes } from "./pty"
 import { McpRoutes } from "./mcp"
+import { MemoryRoutes } from "./memory"
 import { FileRoutes } from "./file"
 import { ConfigRoutes } from "./config"
 import { ExperimentalRoutes } from "./experimental"
@@ -66,6 +67,7 @@ export const InstanceRoutes = (upgrade: UpgradeWebSocket): Hono => {
     .route("/", FileRoutes())
     .route("/", EventRoutes())
     .route("/mcp", McpRoutes())
+    .route("/memory", MemoryRoutes())
     .route("/tui", TuiRoutes())
     .post(
       "/instance/dispose",

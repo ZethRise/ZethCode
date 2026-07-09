@@ -1179,7 +1179,12 @@ export function providerOptions(model: Provider.Model, options: { [x: string]: a
 }
 
 export function maxOutputTokens(model: Provider.Model): number {
-  if (model.providerID === "mimo" || model.providerID === "xiaomi" || model.id.toLowerCase().includes("mimo")) {
+  if (
+    model.providerID === "mimo" ||
+    model.providerID === "xiaomi" ||
+    model.providerID === "xiaomi-api" ||
+    model.id.toLowerCase().includes("mimo")
+  ) {
     return MIMO_OUTPUT_TOKEN_MAX
   }
   return Math.min(model.limit.output, OUTPUT_TOKEN_MAX) || OUTPUT_TOKEN_MAX

@@ -120,11 +120,12 @@ function init() {
     trigger(name: string) {
       for (const option of entries()) {
         if (option.value === name) {
-          if (!isEnabled(option)) return
+          if (!isEnabled(option)) return false
           option.onSelect?.(dialog)
-          return
+          return true
         }
       }
+      return false
     },
     slashes() {
       return visibleOptions().flatMap((option) => {

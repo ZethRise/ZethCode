@@ -1,4 +1,12 @@
-import { BoxRenderable, RGBA, TextareaRenderable, MouseEvent, PasteEvent, decodePasteBytes, type KeyEvent } from "@opentui/core"
+import {
+  BoxRenderable,
+  RGBA,
+  TextareaRenderable,
+  MouseEvent,
+  PasteEvent,
+  decodePasteBytes,
+  type KeyEvent,
+} from "@opentui/core"
 import { createEffect, createMemo, onMount, createSignal, onCleanup, on, Show, Switch, Match } from "solid-js"
 import "opentui-spinner/solid"
 import path from "path"
@@ -38,6 +46,7 @@ import { DialogProvider as DialogProviderConnect } from "../dialog-provider"
 import { DialogAlert } from "../../ui/dialog-alert"
 import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
+import { messageTokenCount } from "../../util/tokens"
 import { createFadeIn } from "../../util/signal"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogSkill } from "../dialog-skill"
@@ -93,17 +102,19 @@ function fadeColor(color: RGBA, alpha: number) {
 let stashed: { prompt: PromptInfo; cursor: number } | undefined
 
 // Module-level voice state: survives component remounts and route changes
-let activeVoice: {
-  handle: Voice.StreamingHandle
-  pending: number
-  appendText: (text: string) => void
-  setText: (text: string) => void
-  getPlainText: () => string
-  switchAgent: (name: string) => void
-  submit: () => Promise<unknown>
-  setState: (type: "listening" | "speaking" | "processing" | "finishing" | "idle") => void
-  showError: (msg: string) => void
-} | undefined
+let activeVoice:
+  | {
+      handle: Voice.StreamingHandle
+      pending: number
+      appendText: (text: string) => void
+      setText: (text: string) => void
+      getPlainText: () => string
+      switchAgent: (name: string) => void
+      submit: () => Promise<unknown>
+      setState: (type: "listening" | "speaking" | "processing" | "finishing" | "idle") => void
+      showError: (msg: string) => void
+    }
+  | undefined
 
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
@@ -238,10 +249,13 @@ export function Prompt(props: PromptProps) {
     const creds = Voice.resolveCredentials(sync.data.provider, activeConfig)
     if ("error" in creds) {
       const vars = { provider: creds.providerID, model: creds.model }
-      const msg = !voiceConfig ? t("tui.voice.error.no_auth")
-        : creds.error === "not_found" ? t("tui.voice.error.provider_not_found", vars)
-        : creds.error === "no_url" ? t("tui.voice.error.no_url", vars)
-        : t("tui.voice.error.no_auth_provider", vars)
+      const msg = !voiceConfig
+        ? t("tui.voice.error.no_auth")
+        : creds.error === "not_found"
+          ? t("tui.voice.error.provider_not_found", vars)
+          : creds.error === "no_url"
+            ? t("tui.voice.error.no_url", vars)
+            : t("tui.voice.error.no_auth_provider", vars)
       toast.show({ message: msg, variant: "error" })
       return
     }
@@ -270,71 +284,75 @@ export function Prompt(props: PromptProps) {
         av.setState("processing")
 
         if (voiceControlEnabled()) {
-          voiceControlChain = voiceControlChain.then(async () => {
-            try {
-              if (!activeVoice) return
-              av.setState("processing")
-              const currentText = av.getPlainText()
-              const currentAgent = local.agent.current()?.name ?? ""
-              const availableAgents = local.agent.list().map((x) => x.name)
+          voiceControlChain = voiceControlChain
+            .then(async () => {
+              try {
+                if (!activeVoice) return
+                av.setState("processing")
+                const currentText = av.getPlainText()
+                const currentAgent = local.agent.current()?.name ?? ""
+                const availableAgents = local.agent.list().map((x) => x.name)
 
-              const ctrl = await Voice.processVoiceControl({
-                audio: segment.audio,
-                apiKey: creds.apiKey,
-                baseUrl: creds.baseUrl,
-                model: resolved.control.model,
-                currentText,
-                currentAgent,
-                availableAgents,
-                sendEnabled: voiceSendEnabled(),
-              })
+                const ctrl = await Voice.processVoiceControl({
+                  audio: segment.audio,
+                  apiKey: creds.apiKey,
+                  baseUrl: creds.baseUrl,
+                  model: resolved.control.model,
+                  currentText,
+                  currentAgent,
+                  availableAgents,
+                  sendEnabled: voiceSendEnabled(),
+                })
 
-              if (ctrl) {
-                for (const action of ctrl.actions) {
-                  if (action.action === "edit") av.setText(action.text)
-                  else if (action.action === "send") {
-                    if (voiceSendEnabled() && av.getPlainText().trim()) await av.submit()
-                    else if (!av.getPlainText().trim()) av.showError(t("tui.voice.error.empty_send"))
-                  } else if (action.action === "agent") {
-                    av.switchAgent(action.agent)
+                if (ctrl) {
+                  for (const action of ctrl.actions) {
+                    if (action.action === "edit") av.setText(action.text)
+                    else if (action.action === "send") {
+                      if (voiceSendEnabled() && av.getPlainText().trim()) await av.submit()
+                      else if (!av.getPlainText().trim()) av.showError(t("tui.voice.error.empty_send"))
+                    } else if (action.action === "agent") {
+                      av.switchAgent(action.agent)
+                    }
                   }
+                } else {
+                  av.showError(t("tui.voice.error.network"))
                 }
-              } else {
-                av.showError(t("tui.voice.error.network"))
+              } finally {
+                av.pending--
+                if (activeVoice === av && voiceState() !== "speaking")
+                  av.setState(av.pending > 0 ? "processing" : "listening")
+                if (!activeVoice && av.pending <= 0) av.setState("idle")
               }
-            } finally {
-              av.pending--
-              if (activeVoice === av && voiceState() !== "speaking")
-                av.setState(av.pending > 0 ? "processing" : "listening")
-              if (!activeVoice && av.pending <= 0) av.setState("idle")
-            }
-          }).catch(() => {})
+            })
+            .catch(() => {})
         } else {
           Voice.transcribeAudio({
             audio: segment.audio,
             apiKey: creds.apiKey,
             baseUrl: creds.baseUrl,
             model: resolved.asr.model,
-          }).then((text) => {
-            if (text) {
-              if (voiceSendEnabled() && Voice.SEND_RE.test(text.replace(/[\s。.!！？?，,]+$/g, "").trim())) {
-                av.submit()
-              } else {
-                av.appendText(text.trim())
-              }
-            } else {
-              av.showError(t("tui.voice.error.network"))
-            }
-            av.pending--
-            if (activeVoice === av && voiceState() !== "speaking")
-              av.setState(av.pending > 0 ? "processing" : "listening")
-            if (!activeVoice && av.pending <= 0) av.setState("idle")
-          }).catch(() => {
-            av.pending--
-            if (activeVoice === av && voiceState() !== "speaking")
-              av.setState(av.pending > 0 ? "processing" : "listening")
-            if (!activeVoice && av.pending <= 0) av.setState("idle")
           })
+            .then((text) => {
+              if (text) {
+                if (voiceSendEnabled() && Voice.SEND_RE.test(text.replace(/[\s。.!！？?，,]+$/g, "").trim())) {
+                  av.submit()
+                } else {
+                  av.appendText(text.trim())
+                }
+              } else {
+                av.showError(t("tui.voice.error.network"))
+              }
+              av.pending--
+              if (activeVoice === av && voiceState() !== "speaking")
+                av.setState(av.pending > 0 ? "processing" : "listening")
+              if (!activeVoice && av.pending <= 0) av.setState("idle")
+            })
+            .catch(() => {
+              av.pending--
+              if (activeVoice === av && voiceState() !== "speaking")
+                av.setState(av.pending > 0 ? "processing" : "listening")
+              if (!activeVoice && av.pending <= 0) av.setState("idle")
+            })
         }
       },
       onActiveChange: (active) => {
@@ -342,7 +360,12 @@ export function Prompt(props: PromptProps) {
       },
       onError: (err) => {
         const msg = err.message || ""
-        if (msg.includes("no default audio") || msg.includes("not found") || msg.includes("Cannot open") || msg.includes("ALSA")) {
+        if (
+          msg.includes("no default audio") ||
+          msg.includes("not found") ||
+          msg.includes("Cannot open") ||
+          msg.includes("ALSA")
+        ) {
           av.showError(t("tui.voice.error.no_device"))
         } else {
           av.showError(`${t("tui.voice.error.recorder_failed")}: ${msg}`)
@@ -467,8 +490,7 @@ export function Prompt(props: PromptProps) {
     const last = msg.findLast((item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0)
     if (!last) return
 
-    const tokens =
-      last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
+    const tokens = messageTokenCount(last)
     if (tokens <= 0) return
 
     const model = sync.data.provider.find((item) => item.id === last.providerID)?.models[last.modelID]
@@ -566,6 +588,51 @@ export function Prompt(props: PromptProps) {
         hidden: true,
         onSelect: async () => {
           await pasteFromClipboard()
+        },
+      },
+      {
+        title: "Enhance prompt",
+        value: "prompt.enhance",
+        keybind: "prompt_enhance",
+        category: "prompt",
+        slash: {
+          name: "enhance",
+        },
+        onSelect: async (dialog) => {
+          if (!props.sessionID) return
+          if (store.prompt.parts.length > 0) {
+            toast.show({
+              message: "Prompt enhance works on text-only drafts",
+              variant: "warning",
+            })
+            return
+          }
+          const draft = store.prompt.input.trim()
+          if (!draft) return
+          const result = await sdk.client.session
+            .ask({
+              sessionID: props.sessionID,
+              question: [
+                "Rewrite this draft prompt into a concise, specific coding-agent request.",
+                "Preserve intent, file names, constraints, and user voice.",
+                "Return only the improved prompt, no preamble.",
+                "",
+                draft,
+              ].join("\n"),
+            })
+            .catch((error) => {
+              toast.show({
+                message: error instanceof Error ? error.message : "Prompt enhancement failed",
+                variant: "error",
+              })
+              return undefined
+            })
+          const answer = result?.data?.answer?.trim()
+          if (!answer) return
+          input.setText(answer)
+          setStore("prompt", { input: answer, parts: [] })
+          input.gotoBufferEnd()
+          dialog.clear()
         },
       },
       {
@@ -762,7 +829,9 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: voiceControlEnabled() ? t("tui.command.voice.control.title_on") : t("tui.command.voice.control.title_off"),
+        title: voiceControlEnabled()
+          ? t("tui.command.voice.control.title_on")
+          : t("tui.command.voice.control.title_off"),
         value: "voice.control",
         category: "prompt",
         slash: {
@@ -1073,159 +1142,157 @@ export function Prompt(props: PromptProps) {
 
     submitLock = true
     try {
+      let sessionID = props.sessionID
+      if (sessionID == null) {
+        const res = await sdk.client.session.create({ workspace: props.workspaceID })
 
-    let sessionID = props.sessionID
-    if (sessionID == null) {
-      const res = await sdk.client.session.create({ workspace: props.workspaceID })
+        if (res.error) {
+          console.log("Creating a session failed:", res.error)
 
-      if (res.error) {
-        console.log("Creating a session failed:", res.error)
+          toast.show({
+            message: "Creating a session failed. Open console for more details.",
+            variant: "error",
+          })
 
-        toast.show({
-          message: "Creating a session failed. Open console for more details.",
-          variant: "error",
-        })
+          return true
+        }
 
-        return true
+        sessionID = res.data.id
       }
 
-      sessionID = res.data.id
-    }
+      const messageID = MessageID.ascending()
 
-    const messageID = MessageID.ascending()
+      // Expand pasted text inline before submitting. Extmark offsets are
+      // display-width based while plainText is UTF-16, so expandPlaceholders
+      // bridges the two coordinate systems (otherwise CJK content desyncs them).
+      const marks = input.extmarks
+        .getAllForTypeId(promptPartTypeId)
+        .flatMap((extmark: { id: number; start: number; end: number }) => {
+          const partIndex = store.extmarkToPartIndex.get(extmark.id)
+          if (partIndex === undefined) return []
+          const part = store.prompt.parts[partIndex]
+          if (part?.type !== "text" || !part.text) return []
+          return [{ start: extmark.start, end: extmark.end, text: part.text }]
+        })
+      const inputText = expandPlaceholders(store.prompt.input, marks)
 
-    // Expand pasted text inline before submitting. Extmark offsets are
-    // display-width based while plainText is UTF-16, so expandPlaceholders
-    // bridges the two coordinate systems (otherwise CJK content desyncs them).
-    const marks = input.extmarks
-      .getAllForTypeId(promptPartTypeId)
-      .flatMap((extmark: { id: number; start: number; end: number }) => {
-        const partIndex = store.extmarkToPartIndex.get(extmark.id)
-        if (partIndex === undefined) return []
-        const part = store.prompt.parts[partIndex]
-        if (part?.type !== "text" || !part.text) return []
-        return [{ start: extmark.start, end: extmark.end, text: part.text }]
-      })
-    const inputText = expandPlaceholders(store.prompt.input, marks)
+      // Filter out text parts (pasted content) since they're now expanded inline
+      const nonTextParts = store.prompt.parts.filter((part) => part.type !== "text")
 
-    // Filter out text parts (pasted content) since they're now expanded inline
-    const nonTextParts = store.prompt.parts.filter((part) => part.type !== "text")
+      // Capture mode before it gets reset
+      const currentMode = store.mode
+      const variant = local.model.variant.current()
 
-    // Capture mode before it gets reset
-    const currentMode = store.mode
-    const variant = local.model.variant.current()
+      const clientSlash = inputText.startsWith("/")
+        ? command.slashes().find((s) => s.display === inputText.trim())
+        : undefined
 
-    const clientSlash = inputText.startsWith("/")
-      ? command.slashes().find((s) => s.display === inputText.trim())
-      : undefined
+      if (store.mode === "shell") {
+        void sdk.client.session.shell({
+          sessionID,
+          agent: agent.name,
+          model: {
+            providerID: selectedModel.providerID,
+            modelID: selectedModel.modelID,
+          },
+          command: inputText,
+        })
+        setStore("mode", "normal")
+      } else if (inputText.startsWith("/btw ")) {
+        // Inline side-question form: `/btw <question>` on the prompt line. Client
+        // slashes match the exact `/btw` token and drop args, so handle the
+        // arg-bearing form here. READ-ONLY + EPHEMERAL: render the answer in a
+        // dismissible dialog, never inject it into the conversation.
+        const question = inputText.slice("/btw ".length).trim()
+        if (question)
+          void sdk.client.session
+            .ask({ sessionID, question })
+            .then((res) => DialogAlert.show(dialog, "/btw", res.data?.answer ?? "(no answer)"))
+            .catch((err) => {
+              toast.show({
+                message: err instanceof Error ? err.message : "Failed to ask side question",
+                variant: "error",
+              })
+            })
+      } else if (clientSlash) {
+        clientSlash.onSelect?.()
+      } else if (
+        inputText.startsWith("/") &&
+        iife(() => {
+          const firstLine = inputText.split("\n")[0]
+          const command = firstLine.split(" ")[0].slice(1)
+          return sync.data.command.some((x) => x.name === command)
+        })
+      ) {
+        // Parse command from first line, preserve multi-line content in arguments
+        const firstLineEnd = inputText.indexOf("\n")
+        const firstLine = firstLineEnd === -1 ? inputText : inputText.slice(0, firstLineEnd)
+        const [command, ...firstLineArgs] = firstLine.split(" ")
+        const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
+        const args = firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")
 
-    if (store.mode === "shell") {
-      void sdk.client.session.shell({
-        sessionID,
-        agent: agent.name,
-        model: {
-          providerID: selectedModel.providerID,
-          modelID: selectedModel.modelID,
-        },
-        command: inputText,
-      })
-      setStore("mode", "normal")
-    } else if (inputText.startsWith("/btw ")) {
-      // Inline side-question form: `/btw <question>` on the prompt line. Client
-      // slashes match the exact `/btw` token and drop args, so handle the
-      // arg-bearing form here. READ-ONLY + EPHEMERAL: render the answer in a
-      // dismissible dialog, never inject it into the conversation.
-      const question = inputText.slice("/btw ".length).trim()
-      if (question)
-        void sdk.client.session
-          .ask({ sessionID, question })
-          .then((res) => DialogAlert.show(dialog, "/btw", res.data?.answer ?? "(no answer)"))
+        void sdk.client.session.command({
+          sessionID,
+          command: command.slice(1),
+          arguments: args,
+          agent: agent.name,
+          model: `${selectedModel.providerID}/${selectedModel.modelID}`,
+          messageID,
+          variant,
+          parts: nonTextParts
+            .filter((x) => x.type === "file")
+            .map((x) => ({
+              id: PartID.ascending(),
+              ...x,
+            })),
+        })
+      } else {
+        sdk.client.session
+          .promptAsync({
+            sessionID,
+            ...selectedModel,
+            messageID,
+            agent: agent.name,
+            model: selectedModel,
+            variant,
+            parts: [
+              {
+                id: PartID.ascending(),
+                type: "text",
+                text: inputText,
+              },
+              ...nonTextParts.map(assign),
+            ],
+          })
           .catch((err) => {
             toast.show({
-              message: err instanceof Error ? err.message : "Failed to ask side question",
+              message: err instanceof Error ? err.message : "Failed to send message",
               variant: "error",
             })
           })
-    } else if (clientSlash) {
-      clientSlash.onSelect?.()
-    } else if (
-      inputText.startsWith("/") &&
-      iife(() => {
-        const firstLine = inputText.split("\n")[0]
-        const command = firstLine.split(" ")[0].slice(1)
-        return sync.data.command.some((x) => x.name === command)
+      }
+      history.append({
+        ...store.prompt,
+        mode: currentMode,
       })
-    ) {
-      // Parse command from first line, preserve multi-line content in arguments
-      const firstLineEnd = inputText.indexOf("\n")
-      const firstLine = firstLineEnd === -1 ? inputText : inputText.slice(0, firstLineEnd)
-      const [command, ...firstLineArgs] = firstLine.split(" ")
-      const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
-      const args = firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")
+      input.extmarks.clear()
+      setStore("prompt", {
+        input: "",
+        parts: [],
+      })
+      setStore("extmarkToPartIndex", new Map())
+      props.onSubmit?.()
 
-      void sdk.client.session.command({
-        sessionID,
-        command: command.slice(1),
-        arguments: args,
-        agent: agent.name,
-        model: `${selectedModel.providerID}/${selectedModel.modelID}`,
-        messageID,
-        variant,
-        parts: nonTextParts
-          .filter((x) => x.type === "file")
-          .map((x) => ({
-            id: PartID.ascending(),
-            ...x,
-          })),
-      })
-    } else {
-      sdk.client.session
-        .promptAsync({
-          sessionID,
-          ...selectedModel,
-          messageID,
-          agent: agent.name,
-          model: selectedModel,
-          variant,
-          parts: [
-            {
-              id: PartID.ascending(),
-              type: "text",
-              text: inputText,
-            },
-            ...nonTextParts.map(assign),
-          ],
-        })
-        .catch((err) => {
-          toast.show({
-            message: err instanceof Error ? err.message : "Failed to send message",
-            variant: "error",
+      // temporary hack to make sure the message is sent
+      if (!props.sessionID)
+        setTimeout(() => {
+          route.navigate({
+            type: "session",
+            sessionID,
           })
-        })
-    }
-    history.append({
-      ...store.prompt,
-      mode: currentMode,
-    })
-    input.extmarks.clear()
-    setStore("prompt", {
-      input: "",
-      parts: [],
-    })
-    setStore("extmarkToPartIndex", new Map())
-    props.onSubmit?.()
-
-    // temporary hack to make sure the message is sent
-    if (!props.sessionID)
-      setTimeout(() => {
-        route.navigate({
-          type: "session",
-          sessionID,
-        })
-      }, 50)
-    input.clear()
-    return true
-
+        }, 50)
+      input.clear()
+      return true
     } finally {
       submitLock = false
     }
@@ -1719,10 +1786,15 @@ export function Prompt(props: PromptProps) {
                             {local.model.parsed().model}
                           </text>
                           {/* Hide provider label for mimo-auto since model name already contains "MiMo" */}
-                          <Show when={!(local.model.current()?.providerID === "mimo" && local.model.current()?.modelID === "mimo-auto")}>
-                            <text fg={fadeColor(theme.textMuted, modelMetaAlpha())}>
-                              {currentProviderLabel()}
-                            </text>
+                          <Show
+                            when={
+                              !(
+                                local.model.current()?.providerID === "mimo" &&
+                                local.model.current()?.modelID === "mimo-auto"
+                              )
+                            }
+                          >
+                            <text fg={fadeColor(theme.textMuted, modelMetaAlpha())}>{currentProviderLabel()}</text>
                           </Show>
                           <Show when={showVariant()}>
                             <text fg={fadeColor(theme.textMuted, variantMetaAlpha())}>·</text>
@@ -1744,9 +1816,7 @@ export function Prompt(props: PromptProps) {
                 </Show>
               </box>
               <box flexDirection="row" gap={1} alignItems="center">
-                <Show when={hasRightContent()}>
-                  {props.right}
-                </Show>
+                <Show when={hasRightContent()}>{props.right}</Show>
                 <Show when={voiceEnabled()}>
                   <Switch>
                     <Match when={voiceState() === "idle"}>
@@ -1770,7 +1840,9 @@ export function Prompt(props: PromptProps) {
                       </text>
                     </Match>
                     <Match when={voiceState() === "finishing"}>
-                      <text fg={theme.textMuted} selectable={false}>{"[ 🎙  .... ]"}</text>
+                      <text fg={theme.textMuted} selectable={false}>
+                        {"[ 🎙  .... ]"}
+                      </text>
                     </Match>
                   </Switch>
                 </Show>
@@ -1909,7 +1981,8 @@ export function Prompt(props: PromptProps) {
                       )}
                     </Show>
                     <text fg={theme.text}>
-                      {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>{t("tui.prompt.hint.switch_mode")}</span>
+                      {keybind.print("agent_cycle")}{" "}
+                      <span style={{ fg: theme.textMuted }}>{t("tui.prompt.hint.switch_mode")}</span>
                     </text>
                     <text fg={theme.text}>
                       {keybind.print("command_list")}{" "}
@@ -1945,4 +2018,3 @@ export function Prompt(props: PromptProps) {
     </>
   )
 }
-

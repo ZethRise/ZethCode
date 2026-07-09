@@ -53,7 +53,6 @@ export const dict = {
   "tui.tips.theme_mode":
     "執行 {highlight}/dark{/highlight} 切換深色模式，{highlight}/light{/highlight} 切換淺色模式",
   "tui.tips.doc": "執行 {highlight}/doc{/highlight} 開啟使用文件",
-  "tui.tips.free_models": "限時提供免費模型中，立即體驗！",
   "tui.tips.background": "執行 {highlight}/background{/highlight} 設定自訂圖片作為主頁背景",
   "tui.tips.undo": "使用 {highlight}/undo{/highlight} 復原最後一條訊息及其檔案變更",
   "tui.tips.redo": "使用 {highlight}/redo{/highlight} 還原先前復原的訊息與檔案變更",

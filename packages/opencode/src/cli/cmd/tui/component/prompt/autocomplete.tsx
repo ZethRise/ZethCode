@@ -20,6 +20,9 @@ import type { PromptInfo } from "./history"
 import { useFrecency } from "./frecency"
 import { detectTrigger } from "./autocomplete-detect"
 import { charAfterCursor } from "./offset"
+import { useDialog } from "@tui/ui/dialog"
+import { DialogAlert } from "@tui/ui/dialog-alert"
+import { messageTokenCount } from "../../util/tokens"
 
 function removeLineRange(input: string) {
   const hashIndex = input.lastIndexOf("#")
@@ -85,6 +88,7 @@ export function Autocomplete(props: {
   const sdk = useSDK()
   const sync = useSync()
   const command = useCommandDialog()
+  const dialog = useDialog()
   const lang = useLanguage()
   const { theme } = useTheme()
   const dimensions = useTerminalDimensions()
@@ -368,6 +372,91 @@ export function Autocomplete(props: {
   const commands = createMemo((): AutocompleteOption[] => {
     const results: AutocompleteOption[] = [...command.slashes()]
 
+    const runContextCommand = async (value: string) => {
+      if (command.trigger(value)) return
+      if (!props.sessionID) {
+        await DialogAlert.show(dialog, "Session required", "Start a session first.")
+        return
+      }
+      const messages = sync.data.message[props.sessionID]?.["main"] ?? []
+      const revert = sync.session.get(props.sessionID)?.revert?.messageID
+      const visible = messages.filter((msg) => !revert || msg.id < revert)
+      const estimate = (messageID: string) =>
+        Math.ceil(
+          ((sync.data.part[messageID] ?? [])
+            .flatMap((part) => (part.type === "text" && !part.synthetic ? [part.text] : []))
+            .join("\n").length || 0) / 4,
+        )
+      if (value === "session.context") {
+        await DialogAlert.show(
+          dialog,
+          "Context",
+          [
+            `${visible.length} messages`,
+            `${visible
+              .reduce((sum, msg) => sum + (msg.role === "assistant" ? messageTokenCount(msg) : estimate(msg.id)), 0)
+              .toLocaleString()} estimated tokens`,
+            "/drop latest turn, /clear all turns, /reset restore",
+          ].join("\n"),
+        )
+        return
+      }
+      if (value === "session.context.reset") {
+        await sdk.client.session.unrevert({ sessionID: props.sessionID })
+        return
+      }
+      const message =
+        value === "session.context.clear"
+          ? messages.find((msg) => msg.role === "user")
+          : visible.findLast((msg) => msg.role === "user")
+      if (!message) return
+      await sdk.client.session.revert({ sessionID: props.sessionID, messageID: message.id })
+    }
+
+    results.push(
+      {
+        display: "/context",
+        aliases: ["tokens", "list"],
+        description: "show context and token estimate",
+        onSelect: () => void runContextCommand("session.context"),
+      },
+      {
+        display: "/tokens",
+        aliases: ["context", "list"],
+        description: "show context and token estimate",
+        onSelect: () => void runContextCommand("session.context"),
+      },
+      {
+        display: "/list",
+        aliases: ["context", "tokens"],
+        description: "show context and token estimate",
+        onSelect: () => void runContextCommand("session.context"),
+      },
+      {
+        display: "/drop",
+        description: "drop latest turn from context",
+        onSelect: () => void runContextCommand("session.context.drop"),
+      },
+      {
+        display: "/clear",
+        description: "clear context",
+        onSelect: () => void runContextCommand("session.context.clear"),
+      },
+      {
+        display: "/reset",
+        description: "restore cleared context",
+        onSelect: () => void runContextCommand("session.context.reset"),
+      },
+      {
+        display: "/enhance",
+        description: "enhance current prompt",
+        onSelect: () => {
+          if (command.trigger("prompt.enhance")) return
+          void DialogAlert.show(dialog, "Session required", "Start a session first.")
+        },
+      },
+    )
+
     for (const serverCommand of sync.data.command) {
       if (serverCommand.source === "skill" && !Flag.ZETHCODE_ENABLE_SLASH_SKILLS) continue
       const label = serverCommand.source === "mcp" ? ":mcp" : ""
@@ -384,11 +473,12 @@ export function Autocomplete(props: {
       })
     }
 
-    results.sort((a, b) => a.display.localeCompare(b.display))
+    const deduped = [...new Map(results.map((item) => [item.display, item])).values()]
+    deduped.sort((a, b) => a.display.localeCompare(b.display))
 
-    const max = firstBy(results, [(x) => x.display.length, "desc"])?.display.length
-    if (!max) return results
-    return results.map((item) => ({
+    const max = firstBy(deduped, [(x) => x.display.length, "desc"])?.display.length
+    if (!max) return deduped
+    return deduped.map((item) => ({
       ...item,
       display: item.display.padEnd(max + 2),
     }))

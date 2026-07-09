@@ -2,6 +2,7 @@ import type { AssistantMessage } from "@zethrise/sdk/v2"
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@zethrise/plugin/tui"
 import { Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import { completedTPS, formatTPS, streamingTPS } from "./tps"
+import { messageTokenCount } from "../../util/tokens"
 
 const id = "internal:sidebar-context"
 const REFRESH_MS = 1000
@@ -18,9 +19,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
 
   const [tick, setTick] = createSignal(Date.now())
 
-  const lastAssistant = createMemo(() =>
-    msg().findLast((item): item is AssistantMessage => item.role === "assistant"),
-  )
+  const lastAssistant = createMemo(() => msg().findLast((item): item is AssistantMessage => item.role === "assistant"))
 
   const isStreaming = createMemo(() => {
     const m = lastAssistant()
@@ -73,8 +72,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
       }
     }
 
-    const tokens =
-      last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
+    const tokens = messageTokenCount(last)
     const model = props.api.state.provider.find((item) => item.id === last.providerID)?.models[last.modelID]
     return {
       tokens,
@@ -112,4 +110,3 @@ const plugin: TuiPluginModule & { id: string } = {
 }
 
 export default plugin
-

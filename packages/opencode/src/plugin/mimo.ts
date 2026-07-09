@@ -6,6 +6,7 @@ import { exec } from "child_process"
 import { Global } from "../global"
 import path from "path"
 import fs from "fs"
+import * as ModelsDev from "../provider/models"
 
 const log = Log.create({ service: "plugin.mimo" })
 
@@ -91,6 +92,33 @@ export async function MimoAuthPlugin(_input: PluginInput): Promise<Hooks> {
       // api: https://api.xiaomimimo.com/v1) — hardcoding "MiMo" here collided with
       // the free "mimo" provider's display name and confused users.
       input.provider.xiaomi ??= {}
+      const xiaomi = (await ModelsDev.get()).xiaomi
+      input.provider["xiaomi-api"] ??= {
+        name: "Xiaomi API",
+        api: xiaomi.api,
+        npm: xiaomi.npm,
+        env: ["XIAOMI_API_KEY"],
+        models: Object.fromEntries(
+          Object.entries(xiaomi.models).map(([id, model]) => [
+            id,
+            {
+              id: model.id,
+              name: model.name,
+              family: model.family,
+              release_date: model.release_date,
+              attachment: model.attachment,
+              reasoning: model.reasoning,
+              temperature: model.temperature,
+              tool_call: model.tool_call,
+              interleaved: model.interleaved,
+              cost: model.cost,
+              limit: model.limit,
+              modalities: model.modalities,
+              status: model.status,
+            },
+          ]),
+        ),
+      }
       // Both "opencode" and "opencode-go" stay enabled. The opencode custom
       // loader strips the free/public tier (and hides paid models until the
       // user authenticates). "opencode-go" has no free models and no custom
@@ -195,7 +223,7 @@ export async function MimoAuthPlugin(_input: PluginInput): Promise<Hooks> {
       ],
     },
     "chat.headers": async (input, output) => {
-      if (input.model.providerID !== "xiaomi") return
+      if (input.model.providerID !== "xiaomi" && input.model.providerID !== "xiaomi-api") return
       output.headers["X-Mimo-Source"] = "zethcode-cli"
     },
   }

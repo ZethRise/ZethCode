@@ -100,6 +100,7 @@ import { SessionRetry } from "@/session/retry"
 import { getRevertDiffFiles } from "../../util/revert-diff"
 import { hasRTL, isRTL, rtlVisual } from "../../util/rtl"
 import { AUTO_DREAM_TITLE } from "@/session/auto-dream"
+import { messageTokenCount } from "../../util/tokens"
 
 addDefaultParsers(parsers.parsers)
 
@@ -323,6 +324,23 @@ export function Session() {
         memoryChecking={projectMemoryExists.loading}
         mcpStatus={memoryMcpStatus()}
         lastDream={lastDream()}
+      />
+    ))
+  }
+  const openContext = (target: DialogContext) => {
+    const info = session()
+    if (!info) return
+    const last = lastAssistant()
+    target.replace(() => (
+      <DialogContextPanel
+        session={info}
+        messages={messages()}
+        parts={(messageID) => sync.data.part[messageID] ?? []}
+        modelLimit={
+          last
+            ? sync.data.provider.find((item) => item.id === last.providerID)?.models[last.modelID]?.limit.context
+            : undefined
+        }
       />
     ))
   }
@@ -1034,6 +1052,58 @@ export function Session() {
       },
     },
     {
+      title: "Show context",
+      value: "session.context",
+      category: "session",
+      slash: {
+        name: "context",
+        aliases: ["tokens", "list"],
+      },
+      onSelect: (dialog) => openContext(dialog),
+    },
+    {
+      title: "Drop latest turn from context",
+      value: "session.context.drop",
+      category: "session",
+      slash: {
+        name: "drop",
+      },
+      onSelect: async (dialog) => {
+        const revert = session()?.revert?.messageID
+        const message = messages().findLast((msg) => (!revert || msg.id < revert) && msg.role === "user")
+        if (!message) return
+        await sdk.client.session.revert({ sessionID: route.sessionID, messageID: message.id })
+        dialog.clear()
+      },
+    },
+    {
+      title: "Clear context",
+      value: "session.context.clear",
+      category: "session",
+      slash: {
+        name: "clear",
+      },
+      onSelect: async (dialog) => {
+        const message = messages().find((msg) => msg.role === "user")
+        if (!message) return
+        await sdk.client.session.revert({ sessionID: route.sessionID, messageID: message.id })
+        dialog.clear()
+      },
+    },
+    {
+      title: "Reset context",
+      value: "session.context.reset",
+      category: "session",
+      enabled: !!session()?.revert?.messageID,
+      slash: {
+        name: "reset",
+      },
+      onSelect: async (dialog) => {
+        await sdk.client.session.unrevert({ sessionID: route.sessionID })
+        dialog.clear()
+      },
+    },
+    {
       title: t("tui.command.session.export.title"),
       value: "session.export",
       keybind: "session_export",
@@ -1480,6 +1550,8 @@ function DialogWhy(props: {
 }) {
   const { theme } = useTheme()
   const dialog = useDialog()
+  const sdk = useSDK()
+  const toast = useToast()
   const ctx = use()
   const lastUser = createMemo(() => props.messages.findLast((item) => item.role === "user"))
   const lastAssistant = createMemo(() => props.messages.findLast((item) => item.role === "assistant"))
@@ -1512,6 +1584,26 @@ function DialogWhy(props: {
       </text>
     </box>
   )
+  const memoryRequest = async (path: string, method = "GET") => {
+    const res = await sdk.fetch(`${sdk.url}/memory/${path}`, {
+      method,
+      headers: sdk.directory ? { "x-zethcode-directory": sdk.directory } : undefined,
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+  }
+  const memoryButton = (label: string, run: () => Promise<void>) => (
+    <text
+      fg={theme.primary}
+      onMouseUp={() =>
+        run().catch((error) =>
+          toast.show({ variant: "error", message: error instanceof Error ? error.message : String(error) }),
+        )
+      }
+    >
+      {label}
+    </text>
+  )
 
   return (
     <box paddingLeft={2} paddingRight={2} paddingBottom={1} gap={1}>
@@ -1540,6 +1632,29 @@ function DialogWhy(props: {
         `${props.memoryChecking ? "checking" : props.memoryExists ? "loaded" : "missing"} | ${props.memoryPath}`,
         props.memoryExists ? theme.success : theme.warning,
       )}
+      <box flexDirection="row" gap={1}>
+        <text width={16} fg={theme.textMuted}>
+          memory index
+        </text>
+        {memoryButton("health", async () => {
+          const health = (await memoryRequest("health")) as {
+            ok: boolean
+            files: number
+            indexed: number
+            missing: number
+            stale: number
+          }
+          toast.show({
+            variant: health.ok ? "success" : "warning",
+            message: `${health.files} files, ${health.indexed} indexed, ${health.missing} missing, ${health.stale} stale`,
+          })
+        })}
+        <text fg={theme.textMuted}>|</text>
+        {memoryButton("reindex", async () => {
+          const result = (await memoryRequest("reindex", "POST")) as { indexed: number; pruned: number }
+          toast.show({ variant: "success", message: `${result.indexed} updated, ${result.pruned} pruned` })
+        })}
+      </box>
       {row(
         "mcp",
         `codebase-memory ${props.mcpStatus}`,
@@ -1572,6 +1687,76 @@ function DialogWhy(props: {
           </For>
         </box>
       </Show>
+    </box>
+  )
+}
+
+function DialogContextPanel(props: {
+  session: SDKSession
+  messages: Message[]
+  parts: (messageID: string) => Part[]
+  modelLimit?: number
+}) {
+  const { theme } = useTheme()
+  const dialog = useDialog()
+  const visible = createMemo(() => {
+    const revert = props.session.revert?.messageID
+    return props.messages.filter((msg) => !revert || msg.id < revert)
+  })
+  const estimate = (msg: Message) => {
+    if (msg.role === "assistant") return messageTokenCount(msg)
+    return Math.ceil(
+      (props
+        .parts(msg.id)
+        .flatMap((part) => (part.type === "text" && !part.synthetic ? [part.text] : []))
+        .join("\n").length || 0) / 4,
+    )
+  }
+  const total = createMemo(() => visible().reduce((sum, msg) => sum + estimate(msg), 0))
+  const percent = createMemo(() =>
+    props.modelLimit ? Math.min(100, Math.round((total() / props.modelLimit) * 100)) : 0,
+  )
+
+  return (
+    <box paddingLeft={2} paddingRight={2} paddingBottom={1} gap={1}>
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Context
+        </text>
+        <text fg={theme.textMuted} onMouseUp={() => dialog.clear()}>
+          esc
+        </text>
+      </box>
+      <box flexDirection="row" gap={1}>
+        <text fg={theme.text}>{total().toLocaleString()} tokens</text>
+        <Show when={props.modelLimit}>
+          <text fg={theme.textMuted}>
+            / {props.modelLimit!.toLocaleString()} ({percent()}%)
+          </text>
+        </Show>
+      </box>
+      <text fg={theme.textMuted}>/drop latest turn, /clear all turns, /reset restore</text>
+      <For each={visible().slice(-20)}>
+        {(msg) => (
+          <box flexDirection="row" gap={1}>
+            <text width={10} fg={msg.role === "assistant" ? theme.accent : theme.success}>
+              {msg.role}
+            </text>
+            <text width={9} fg={theme.textMuted}>
+              {estimate(msg).toLocaleString()}
+            </text>
+            <text fg={theme.textMuted} wrapMode="none">
+              {Locale.truncate(
+                props
+                  .parts(msg.id)
+                  .flatMap((part) => (part.type === "text" && !part.synthetic ? [part.text.replace(/\s+/g, " ")] : []))
+                  .join(" "),
+                80,
+              )}
+            </text>
+          </box>
+        )}
+      </For>
     </box>
   )
 }

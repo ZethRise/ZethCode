@@ -28,6 +28,7 @@ import { BashTool } from "../../tool/bash"
 import { Locale } from "../../util"
 import { AppRuntime } from "@/effect/app-runtime"
 import { createCompletionTracker, type CompletionTracker } from "./run-completion"
+import { workspaceLessDir } from "@/global"
 
 type ToolProps<T> = {
   input: Tool.InferParameters<T>
@@ -271,6 +272,11 @@ export const RunCommand = cmd({
         type: "string",
         describe: "directory to run in, path on remote server if attaching",
       })
+      .option("no-project", {
+        type: "boolean",
+        describe: "run in a global workspace-less directory",
+        default: false,
+      })
       .option("port", {
         type: "number",
         describe: "port for the local server (defaults to random port if no value provided)",
@@ -300,7 +306,12 @@ export const RunCommand = cmd({
       .map((arg) => (arg.includes(" ") ? `"${arg.replace(/"/g, '\\"')}"` : arg))
       .join(" ")
 
-    const directory = (() => {
+    const directory = await (async () => {
+      if (args["no-project"]) {
+        const dir = await workspaceLessDir()
+        process.chdir(dir)
+        return dir
+      }
       if (!args.dir) return undefined
       if (args.attach) return args.dir
       try {

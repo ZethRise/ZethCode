@@ -175,6 +175,15 @@ export function evaluate(permission: string, pattern: string, ...rulesets: Rules
 // (e.g. ZETHCODE_AUTO_APPROVE_DELETE for bash_delete) is the only bypass.
 const FORCED_ASK = new Set(["bash_delete"])
 
+function riskyToolCall(permission: string, patterns: readonly string[]) {
+  if (permission !== "bash") return false
+  return patterns.some((pattern) =>
+    /\b(git\s+push|git\s+reset|git\s+clean|rm\s+-|sudo|chmod\s+-R|chown\s+-R|curl\b.*\|\s*(sh|bash)|wget\b.*\|\s*(sh|bash))\b/i.test(
+      pattern,
+    ),
+  )
+}
+
 export class Service extends Context.Service<Service, Interface>()("@opencode/Permission") {}
 
 export const layer = Layer.effect(
@@ -209,7 +218,7 @@ export const layer = Layer.effect(
       const { ruleset, ...request } = input
       let needsAsk = false
 
-      const forced = FORCED_ASK.has(request.permission)
+      const forced = FORCED_ASK.has(request.permission) || riskyToolCall(request.permission, request.patterns)
 
       for (const pattern of request.patterns) {
         // Evaluate the ruleset ALONE first. An explicit deny here must win

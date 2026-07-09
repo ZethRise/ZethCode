@@ -55,7 +55,6 @@ export const dict = {
   "tui.tips.theme_mode":
     "Ejecuta {highlight}/dark{/highlight} para el modo oscuro o {highlight}/light{/highlight} para el modo claro",
   "tui.tips.doc": "Ejecuta {highlight}/doc{/highlight} para abrir la documentación de usuario",
-  "tui.tips.free_models": "Modelos gratuitos disponibles por tiempo limitado — ¡pruébalos ahora!",
   "tui.tips.background":
     "Ejecuta {highlight}/background{/highlight} para usar una imagen personalizada como fondo de inicio",
   "tui.tips.undo":

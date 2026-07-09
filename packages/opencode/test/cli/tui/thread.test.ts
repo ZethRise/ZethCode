@@ -63,6 +63,8 @@ describe("tui thread", () => {
       "never-ask": false,
       neverAsk: false,
       trust: true,
+      "no-project": false,
+      noProject: false,
       "dangerously-skip-permissions": false,
       dangerouslySkipPermissions: false,
       port: 0,

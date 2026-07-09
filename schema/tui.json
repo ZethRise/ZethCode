@@ -161,6 +161,9 @@
         "input_clear": {
           "type": "string"
         },
+        "prompt_enhance": {
+          "type": "string"
+        },
         "input_paste": {
           "type": "string"
         },

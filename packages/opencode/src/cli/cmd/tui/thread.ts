@@ -18,6 +18,7 @@ import { TuiConfig } from "./config/tui"
 import { ZETHCODE_PROCESS_ROLE, ZETHCODE_RUN_ID, ensureRunID, sanitizedProcessEnv } from "@/util/mimo-process"
 import { checkTrust, markTrusted } from "@/project/workspace-trust"
 import { t } from "@/cli/i18n"
+import { workspaceLessDir } from "@/global"
 
 declare global {
   const OPENCODE_WORKER_PATH: string
@@ -201,6 +202,11 @@ export const TuiThreadCommand = cmd({
         describe: "skip workspace trust prompt and trust the directory",
         default: false,
       })
+      .option("no-project", {
+        type: "boolean",
+        describe: "run in a global workspace-less directory",
+        default: false,
+      })
       .option("dangerously-skip-permissions", {
         type: "boolean",
         describe: "auto-approve permissions that are not explicitly denied (dangerous!)",
@@ -224,9 +230,11 @@ export const TuiThreadCommand = cmd({
       // Resolve relative --project paths from PWD, then use the real cwd after
       // chdir so the thread and worker share the same directory key.
       const root = Filesystem.resolve(process.env.PWD ?? process.cwd())
-      const next = args.project
-        ? Filesystem.resolve(path.isAbsolute(args.project) ? args.project : path.join(root, args.project))
-        : Filesystem.resolve(process.cwd())
+      const next = args["no-project"]
+        ? await workspaceLessDir()
+        : args.project
+          ? Filesystem.resolve(path.isAbsolute(args.project) ? args.project : path.join(root, args.project))
+          : Filesystem.resolve(process.cwd())
       const file = await target()
       try {
         process.chdir(next)

@@ -17,9 +17,9 @@ export const MemoryCommand = cmd({
   builder: (yargs: Argv) => {
     return yargs
       .positional("action", {
-        describe: "action to perform (list, add, search)",
+        describe: "action to perform (list, add, search, health, reindex)",
         type: "string",
-        choices: ["list", "add", "search"],
+        choices: ["list", "add", "search", "health", "reindex"],
         demandOption: true,
       })
       .positional("text", {
@@ -93,6 +93,30 @@ export const MemoryCommand = cmd({
             Effect.gen(function* () {
               const memory = yield* Memory.Service
               yield* memory.reconcile()
+            })
+          )
+          return
+        }
+
+        if (action === "health") {
+          await AppRuntime.runPromise(
+            Effect.gen(function* () {
+              const memory = yield* Memory.Service
+              const health = yield* memory.health()
+              UI.println(
+                `${health.ok ? "OK" : "STALE"}: ${health.files} files, ${health.indexed} indexed, ${health.missing} missing, ${health.stale} stale`,
+              )
+            })
+          )
+          return
+        }
+
+        if (action === "reindex") {
+          await AppRuntime.runPromise(
+            Effect.gen(function* () {
+              const memory = yield* Memory.Service
+              const result = yield* memory.reconcile()
+              UI.println(`Reindexed memory: ${result.indexed} updated, ${result.pruned} pruned.`)
             })
           )
           return

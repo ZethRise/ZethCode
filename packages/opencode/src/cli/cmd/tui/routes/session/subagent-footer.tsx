@@ -8,6 +8,7 @@ import { useCommandDialog } from "@tui/component/dialog-command"
 import { useKeybind } from "../../context/keybind"
 import { Locale } from "@/util"
 import { useTerminalDimensions } from "@opentui/solid"
+import { messageTokenCount } from "../../util/tokens"
 
 export function SubagentFooter() {
   const route = useRouteData("session")
@@ -33,31 +34,17 @@ export function SubagentFooter() {
     }
   })
 
-  const messages = createMemo(
-    () => sync.data.message[route.sessionID]?.[currentAgentID()] ?? [],
-  )
+  const messages = createMemo(() => sync.data.message[route.sessionID]?.[currentAgentID()] ?? [])
 
   const usage = createMemo(() => {
     const msg = messages()
-    const last = msg.findLast(
-      (item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0,
-    )
+    const last = msg.findLast((item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0)
     if (!last) return
-    const tokens =
-      last.tokens.input +
-      last.tokens.output +
-      last.tokens.reasoning +
-      last.tokens.cache.read +
-      last.tokens.cache.write
+    const tokens = messageTokenCount(last)
     if (tokens <= 0) return
     const model = sync.data.provider.find((item) => item.id === last.providerID)?.models[last.modelID]
-    const pct = model?.limit.context
-      ? `${Math.round((tokens / model.limit.context) * 100)}%`
-      : undefined
-    const cost = msg.reduce(
-      (sum, item) => sum + (item.role === "assistant" ? item.cost : 0),
-      0,
-    )
+    const pct = model?.limit.context ? `${Math.round((tokens / model.limit.context) * 100)}%` : undefined
+    const cost = msg.reduce((sum, item) => sum + (item.role === "assistant" ? item.cost : 0), 0)
     const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
     return {
       context: pct ? `${Locale.number(tokens)} (${pct})` : Locale.number(tokens),
@@ -141,4 +128,3 @@ export function SubagentFooter() {
     </box>
   )
 }
-

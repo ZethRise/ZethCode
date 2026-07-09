@@ -32,6 +32,12 @@ export async function orchestratorDir() {
   return dir
 }
 
+export async function workspaceLessDir() {
+  const dir = path.join(Path.data, "workspace-less")
+  await fs.mkdir(dir, { recursive: true })
+  return dir
+}
+
 // Initialize Flock with global state path
 Flock.setGlobal({ state })
 

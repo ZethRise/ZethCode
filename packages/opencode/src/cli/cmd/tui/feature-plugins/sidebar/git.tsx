@@ -1,6 +1,5 @@
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@zethrise/plugin/tui"
 import { createMemo, createSignal, For, Show, onCleanup, onMount } from "solid-js"
-import { Process } from "@/util"
 
 const id = "internal:sidebar-git"
 const POLL_MS = 3000
@@ -20,10 +19,13 @@ async function git(args: string[], cwd: string): Promise<string> {
 async function getStatus(cwd: string): Promise<GitFile[]> {
   const raw = await git(["status", "--porcelain", "-uall"], cwd)
   if (!raw) return []
-  return raw.split("\n").filter(Boolean).map((line) => ({
-    code: line.slice(0, 2).trim(),
-    file: line.slice(3),
-  }))
+  return raw
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => ({
+      code: line.slice(0, 2),
+      file: line.slice(3),
+    }))
 }
 
 async function stageAll(cwd: string) {
@@ -42,16 +44,83 @@ async function pull(cwd: string) {
   await git(["pull", "--rebase"], cwd)
 }
 
-function statusIcon(code: string): string {
-  if (code === "??" || code.includes("A")) return "+"
-  if (code.includes("D")) return "−"
+function statusIcon(code: string) {
+  if (code === "??") return "?"
+  if (code.includes("A")) return "+"
+  if (code.includes("D")) return "-"
+  if (code.includes("R")) return "R"
   return "~"
 }
 
-function statusColor(code: string, theme: TuiPluginApi["theme"]["current"]): object {
+function statusColor(code: string, theme: TuiPluginApi["theme"]["current"]) {
   if (code === "??" || code.includes("A")) return { fg: theme.success }
   if (code.includes("D")) return { fg: theme.error }
   return { fg: theme.warning }
+}
+
+function splitFile(input: string) {
+  const normalized = input.replace(/\\/g, "/")
+  const parts = normalized.split("/")
+  return { dir: parts.slice(0, -1).join("/"), name: parts.at(-1) ?? input }
+}
+
+function compactDir(input: string) {
+  if (!input) return ""
+  const parts = input.split("/")
+  if (parts.length <= 2) return input
+  return `${parts[0]}/.../${parts.at(-1)}`
+}
+
+function Section(props: {
+  title: string
+  count: number
+  files: GitFile[]
+  open: boolean
+  setOpen: (value: boolean) => void
+  theme: TuiPluginApi["theme"]["current"]
+}) {
+  return (
+    <Show when={props.count > 0}>
+      <box>
+        <box flexDirection="row" gap={1} onMouseDown={() => props.setOpen(!props.open)}>
+          <text fg={props.theme.textMuted}>{props.open ? "v" : ">"}</text>
+          <text fg={props.theme.text}>
+            <b>{props.title}</b>
+          </text>
+          <text fg={props.theme.textMuted}>{props.count}</text>
+        </box>
+        <Show when={props.open}>
+          <box paddingLeft={1}>
+            <For each={props.files.slice(0, 8)}>
+              {(item) => {
+                const file = splitFile(item.file)
+                return (
+                  <box flexDirection="row" gap={1}>
+                    <text flexShrink={0} style={statusColor(item.code, props.theme)}>
+                      {statusIcon(item.code)}
+                    </text>
+                    <box>
+                      <text fg={props.theme.text} wrapMode="none">
+                        {file.name}
+                      </text>
+                      <Show when={file.dir}>
+                        <text fg={props.theme.textMuted} wrapMode="none">
+                          {compactDir(file.dir)}
+                        </text>
+                      </Show>
+                    </box>
+                  </box>
+                )
+              }}
+            </For>
+            <Show when={props.files.length > 8}>
+              <text fg={props.theme.textMuted}>  +{props.files.length - 8} more</text>
+            </Show>
+          </box>
+        </Show>
+      </box>
+    </Show>
+  )
 }
 
 function View(props: { api: TuiPluginApi }) {
@@ -60,6 +129,8 @@ function View(props: { api: TuiPluginApi }) {
   const [message, setMessage] = createSignal("")
   const [busy, setBusy] = createSignal(false)
   const [open, setOpen] = createSignal(true)
+  const [stagedOpen, setStagedOpen] = createSignal(true)
+  const [unstagedOpen, setUnstagedOpen] = createSignal(true)
   const [error, setError] = createSignal("")
   let mounted = true
 
@@ -84,8 +155,9 @@ function View(props: { api: TuiPluginApi }) {
     })
   })
 
-  const staged = createMemo(() => files().filter((f) => !"??".includes(f.code.charAt(0)) && f.code.charAt(0) !== " "))
-  const unstaged = createMemo(() => files().filter((f) => f.code === "??" || f.code.charAt(0) === " " || f.code.charAt(1) !== " "))
+  const branch = createMemo(() => props.api.state.vcs?.branch ?? "detached")
+  const staged = createMemo(() => files().filter((f) => f.code.charAt(0) !== " " && f.code.charAt(0) !== "?"))
+  const unstaged = createMemo(() => files().filter((f) => f.code === "??" || f.code.charAt(1) !== " "))
   const total = createMemo(() => files().length)
 
   const doCommit = async () => {
@@ -112,7 +184,6 @@ function View(props: { api: TuiPluginApi }) {
     setBusy(true)
     setError("")
     try {
-      // commit first if there are changes and a message
       if (files().length > 0 && message().trim()) {
         await stageAll(cwd())
         await commit(cwd(), message().trim())
@@ -135,7 +206,7 @@ function View(props: { api: TuiPluginApi }) {
     <Show when={total() > 0 || props.api.state.vcs?.branch}>
       <box>
         <box flexDirection="row" gap={1} onMouseDown={() => setOpen((x) => !x)}>
-          <text fg={theme().text}>{open() ? "▼" : "▶"}</text>
+          <text fg={theme().textMuted}>{open() ? "v" : ">"}</text>
           <text fg={theme().text}>
             <b>Source Control</b>
           </text>
@@ -145,30 +216,39 @@ function View(props: { api: TuiPluginApi }) {
         </box>
 
         <Show when={open()}>
-          {/* Changed files list */}
-          <Show when={files().length > 0}>
+          <box paddingLeft={1}>
+            <box flexDirection="row" gap={1}>
+              <text fg={theme().textMuted}>branch</text>
+              <text fg={theme().text} wrapMode="none">
+                {branch()}
+              </text>
+            </box>
+          </box>
+
+          <Section
+            title="Staged"
+            count={staged().length}
+            files={staged()}
+            open={stagedOpen()}
+            setOpen={setStagedOpen}
+            theme={theme()}
+          />
+          <Section
+            title="Changes"
+            count={unstaged().length}
+            files={unstaged()}
+            open={unstagedOpen()}
+            setOpen={setUnstagedOpen}
+            theme={theme()}
+          />
+
+          <Show when={files().length === 0}>
             <box paddingLeft={1}>
-              <For each={files().slice(0, 8)}>
-                {(item) => (
-                  <box flexDirection="row" gap={1}>
-                    <text flexShrink={0} style={statusColor(item.code, theme())}>
-                      {statusIcon(item.code)}
-                    </text>
-                    <text fg={theme().textMuted}>{item.file.split("/").pop()}</text>
-                  </box>
-                )}
-              </For>
-              <Show when={files().length > 8}>
-                <text fg={theme().textMuted}>  +{files().length - 8} more</text>
-              </Show>
+              <text fg={theme().success}>Clean tree</text>
             </box>
           </Show>
-          <Show when={files().length === 0}>
-            <text fg={theme().textMuted}>No changes</text>
-          </Show>
 
-          {/* Commit message input */}
-          <box paddingTop={1} gap={0}>
+          <box paddingTop={1} gap={1}>
             <box
               width="100%"
               backgroundColor={theme().backgroundElement}
@@ -190,36 +270,31 @@ function View(props: { api: TuiPluginApi }) {
                 ))
               }}
             >
-              <text fg={message() ? theme().text : theme().textMuted}>
-                {message() || "Message (click to type)"}
-              </text>
+              <text fg={message() ? theme().text : theme().textMuted}>{message() || "Commit message"}</text>
             </box>
 
-            {/* Action buttons */}
-            <box flexDirection="row" gap={1} paddingTop={0} width="100%">
+            <box flexDirection="row" gap={1}>
               <box
-                flexGrow={1}
-                backgroundColor="#60a5fa"
+                width={17}
+                backgroundColor={message().trim() && !busy() ? theme().primary : theme().backgroundElement}
                 justifyContent="center"
                 paddingLeft={1}
                 paddingRight={1}
                 onMouseDown={() => void doCommit()}
               >
-                <text fg={busy() ? theme().textMuted : "#ffffff"}>
-                  {busy() ? "..." : "✓ Commit"}
+                <text fg={message().trim() && !busy() ? theme().selectedListItemText : theme().textMuted}>
+                  {busy() ? "..." : "Commit"}
                 </text>
               </box>
               <box
-                flexGrow={1}
-                backgroundColor="#1d4ed8"
+                width={17}
+                backgroundColor={busy() ? theme().backgroundElement : theme().backgroundPanel}
                 justifyContent="center"
                 paddingLeft={1}
                 paddingRight={1}
                 onMouseDown={() => void doSync()}
               >
-                <text fg={busy() ? theme().textMuted : "#ffffff"}>
-                  {busy() ? "..." : "↻ Sync"}
-                </text>
+                <text fg={busy() ? theme().textMuted : theme().text}>{busy() ? "..." : "Sync"}</text>
               </box>
             </box>
           </box>

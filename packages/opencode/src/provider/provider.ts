@@ -1640,6 +1640,11 @@ const layer: Layer.Layer<
               opts.headers = h
             }
           }
+          if (process.platform === "win32" && model.api.npm.includes("@ai-sdk/openai-compatible")) {
+            const h = new Headers(opts.headers)
+            h.set("Connection", "close")
+            opts.headers = h
+          }
           const chunkAbortCtl = typeof chunkTimeout === "number" && chunkTimeout > 0 ? new AbortController() : undefined
           const signals: AbortSignal[] = []
 

@@ -4,7 +4,8 @@ import os from "os"
 import { Global } from "../global"
 import { Database } from "../storage"
 import { Config } from "../config"
-import { reconcileMemory } from "./reconcile"
+import { reconcileMemory, walkCcRoot, walkMemoryDir } from "./reconcile"
+import { MemoryFtsTable } from "./fts.sql"
 import { buildFtsQuery } from "./fts-query"
 import { InstanceState } from "@/effect"
 
@@ -20,6 +21,7 @@ type SearchRow = {
 export interface Interface {
   readonly root: () => Effect.Effect<string>
   readonly reconcile: () => Effect.Effect<{ indexed: number; pruned: number }>
+  readonly health: () => Effect.Effect<{ files: number; indexed: number; stale: number; missing: number; ok: boolean }>
   readonly search: (input: {
     query: string
     scope?: string
@@ -44,26 +46,56 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
       return root
     })
 
-    const reconcile = Effect.fn("Memory.reconcile")(function* () {
+    const inputs = Effect.fn("Memory.inputs")(function* () {
       const cfg = yield* config.get()
       const cc = cfg.memory?.cc_index ? ccBase : undefined
       const ctx = yield* InstanceState.context.pipe(Effect.catch(() => Effect.succeed(undefined)))
       const localMemory = ctx && ctx.project.id !== "global" && ctx.worktree !== path.parse(ctx.worktree).root
+      return {
+        mimo: root,
+        cc,
+        extra:
+          localMemory
+            ? [
+                {
+                  path: path.join(ctx.worktree, ".zethcode", "MEMORY.md"),
+                  loc: { scope: "projects" as const, scope_id: ctx.project.id, type: "memory" as const, key: "MEMORY" },
+                  bodyType: "mimo" as const,
+                },
+              ]
+            : undefined,
+      }
+    })
+
+    const reconcile = Effect.fn("Memory.reconcile")(function* () {
+      const rootInput = yield* inputs()
+      return yield* Effect.promise(() => reconcileMemory(rootInput))
+    })
+
+    const health = Effect.fn("Memory.health")(function* () {
+      const rootInput = yield* inputs()
       return yield* Effect.promise(() =>
-        reconcileMemory({
-          mimo: root,
-          cc,
-          extra:
-            localMemory
-              ? [
-                  {
-                    path: path.join(ctx.worktree, ".zethcode", "MEMORY.md"),
-                    loc: { scope: "projects", scope_id: ctx.project.id, type: "memory", key: "MEMORY" },
-                    bodyType: "mimo",
-                  },
-                ]
-              : undefined,
-        }),
+        (async () => {
+          const files = [
+            ...(await walkMemoryDir(rootInput.mimo)),
+            ...(rootInput.cc ? await walkCcRoot(rootInput.cc) : []),
+            ...(rootInput.extra ?? []).map((item) => item.path),
+          ]
+          const indexed = new Map(
+            Database.use((db) =>
+              db.select({ path: MemoryFtsTable.path, fingerprint: MemoryFtsTable.fingerprint }).from(MemoryFtsTable).all(),
+            ).map((row) => [row.path, row.fingerprint]),
+          )
+          const fingerprints = await Promise.all(
+            files.map(async (file) => {
+              const stat = await Bun.file(file).stat().catch(() => undefined)
+              return [file, stat ? `${stat.size}-${stat.mtimeMs}` : undefined] as const
+            }),
+          )
+          const missing = fingerprints.filter(([file]) => !indexed.has(file)).length
+          const stale = fingerprints.filter(([file, fingerprint]) => indexed.has(file) && indexed.get(file) !== fingerprint).length
+          return { files: files.length, indexed: indexed.size, stale, missing, ok: missing === 0 && stale === 0 }
+        })(),
       )
     })
 
@@ -153,6 +185,7 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
     return Service.of({
       root: rootEff,
       reconcile,
+      health,
       search,
     })
   }),

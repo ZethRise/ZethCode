@@ -290,7 +290,7 @@ export const layer = Layer.effect(
         return {
           type: "remote" as const,
           url: "https://mcp.context7.com/mcp",
-          enabled: false,
+          enabled: true,
           oauth: false as const,
           timeout: 15_000,
           ...(process.env.CONTEXT7_API_KEY

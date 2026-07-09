@@ -268,6 +268,10 @@ const live: Layer.Layer<
         ? yield* actorReg.isSystemSpawned(SessionID.make(input.sessionID), input.agentID)
         : false
       if (!isSystemActor) {
+        const cfg = yield* config.get()
+        if (cfg.locale) {
+          system.push(`Preferred response language: ${cfg.locale}. Reply in this language unless the user explicitly asks otherwise.`)
+        }
         const projectID =
           (yield* Effect.try({
             try: () => Instance.current?.project?.id as ProjectID | undefined,

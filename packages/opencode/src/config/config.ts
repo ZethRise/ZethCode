@@ -99,6 +99,9 @@ const InfoSchema = Schema.Struct({
     description: "JSON schema reference for configuration validation",
   }),
   logLevel: Schema.optional(LogLevelRef).annotate({ description: "Log level" }),
+  locale: Schema.optional(Schema.String).annotate({
+    description: "Preferred assistant response language, e.g. en, fa, ja, Spanish, Persian. UI language still uses /language.",
+  }),
   server: Schema.optional(ConfigServer.Server).annotate({
     description: "Server configuration for mimo serve and web commands",
   }),

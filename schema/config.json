@@ -18,6 +18,10 @@
         "ERROR"
       ]
     },
+    "locale": {
+      "description": "Preferred assistant response language, e.g. en, fa, ja, Spanish, Persian. UI language still uses /language.",
+      "type": "string"
+    },
     "server": {
       "description": "Server configuration for mimo serve and web commands",
       "ref": "ServerConfig",

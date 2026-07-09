@@ -10,7 +10,6 @@ const TIP_ROTATION_MS = 10_000
 // Promote recently-added or critical features so users discover them.
 // Tips not listed here use the default weight of 1.
 const PRIORITY_WEIGHTS: Record<string, number> = {
-  "tui.tips.free_models": 50,
   "tui.tips.background": 50,
   "tui.tips.login": 40,
   "tui.tips.theme_mode": 40,
@@ -21,7 +20,6 @@ const PRIORITY_WEIGHTS: Record<string, number> = {
 }
 
 const TIP_KEYS = [
-  "tui.tips.free_models",
   "tui.tips.background",
   "tui.tips.theme_mode",
   "tui.tips.doc",
