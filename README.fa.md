@@ -20,6 +20,18 @@ MiMo Code خودش فورکی از [OpenCode](https://github.com/anomalyco/openc
 
 ---
 
+## تازه‌های v1.0.4
+
+- ابزارهای بهتر برای TUI: دستورهای `/context` و `/tokens`، مدیریت کانتکست، بهبود پرامپت، اسکرول کامل گفتگو و ظاهر بهتر سایدبار Source Control.
+- حافظه پروژه قوی‌تر: بررسی خودکار حافظه پروژه، نمایش trace حافظه، health check و reindex.
+- پشتیبانی داخلی از Context7 MCP برای کانتکست مستندات تازه‌تر هنگام جست‌وجوی وب و بررسی داکیومنت‌های قدیمی.
+- حالت workspace-less برای نشست‌هایی که به پوشه پروژه محلی نیاز ندارند.
+- scaffold کانکتور همراه با رجیستری محلی در `.zethcode/connectors/registry.json`.
+- رندر بهتر RTL/فارسی و پایداری بهتر providerها در ویندوز و backendهای سازگار با OpenAI.
+- پشتیبانی از حذف نصب در ویندوز با `uninstall.ps1`.
+
+---
+
 ## شروع سریع
 
 نصب با npm:
@@ -112,6 +124,7 @@ Zeth Code داخل ترمینال اجرا می‌شود و برای نشست‌
 - خطاها و نکات تکرارشونده
 - پیشرفت تسک‌ها
 - جست‌وجوی محلی با SQLite FTS5
+- health check، reindex و نمایش trace حافظه در TUI
 
 ### ابزارهای توسعه محلی
 
@@ -120,6 +133,14 @@ Zeth Code داخل ترمینال اجرا می‌شود و برای نشست‌
 ### پشتیبانی از Providerها
 
 می‌توانید از providerهای سازگار با OpenAI و تنظیمات مدل ایمپورت‌شده استفاده کنید. انتخاب provider و مدل داخل TUI انجام می‌شود تا بدون خروج از ترمینال جریان کاری را عوض کنید.
+
+### MCPهای داخلی
+
+Zeth Code پشتیبانی داخلی از MCP حافظه پروژه و Context7 MCP دارد تا نشست‌های کدنویسی کانتکست حافظه و مستندات بهتری داشته باشند.
+
+### کنترل کانتکست
+
+با ابزارهای کانتکست در TUI می‌توانید مصرف توکن را ببینید، کانتکست متصل‌شده را بررسی کنید و فایل‌ها یا پیام‌های قدیمی را بدون شروع دوباره نشست کم کنید.
 
 ### Workflow و Skill
 
@@ -136,10 +157,19 @@ zeth
 # اجرای یک پرامپت تکی
 zeth run "refactor this module and explain the change"
 
+# شروع بدون پوشه پروژه محلی
+zeth --no-project
+zeth run --no-project "research this API and make a plan"
+
 # مدیریت حافظه
 zeth memory list
 zeth memory add "prefer Bun APIs in this repository"
 zeth memory search "Bun APIs"
+zeth memory health
+zeth memory reindex
+
+# ساخت scaffold برای کانکتور
+zeth connector create my-connector
 ```
 
 ---

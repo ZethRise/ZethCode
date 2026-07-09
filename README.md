@@ -20,6 +20,18 @@ MiMo Code is built as a fork of [OpenCode](https://github.com/anomalyco/opencode
 
 ---
 
+## What's New in v1.0.4
+
+- Better TUI productivity tools: `/context`, `/tokens`, context trimming commands, prompt enhancement, full scrollback, and a cleaner source control sidebar.
+- Stronger project memory: automatic project memory checks, memory trace view, memory health checks, and reindex support.
+- Built-in Context7 MCP support for fresher documentation context during web search and old-doc checks.
+- Workspace-less mode for sessions that do not need a local project folder.
+- Connector scaffolding with a local `.zethcode/connectors/registry.json`.
+- Better RTL/Persian rendering and provider stability on Windows/OpenAI-compatible backends.
+- Windows uninstall script support with `uninstall.ps1`.
+
+---
+
 ## Quick Start
 
 Install with npm:
@@ -112,6 +124,7 @@ Project memory keeps useful context across sessions:
 - Gotchas and repeated fixes
 - Task progress
 - Searchable local context backed by SQLite FTS5
+- Health checks, reindexing, and a TUI memory trace view
 
 ### Local Development Tools
 
@@ -120,6 +133,14 @@ Agents can inspect files, edit code, run commands, work with Git state, and use 
 ### Provider Support
 
 Use OpenAI-compatible providers and imported model configurations. Zeth Code keeps provider and model selection in the TUI so you can switch workflows without leaving the terminal.
+
+### Built-in MCP Servers
+
+Zeth Code includes built-in project memory MCP support and Context7 MCP support for documentation-aware coding sessions.
+
+### Context Controls
+
+Use the TUI context tools to inspect token usage, review attached context, and trim stale files or messages without restarting the session.
 
 ### Workflows and Skills
 
@@ -136,10 +157,19 @@ zeth
 # Run a single prompt
 zeth run "refactor this module and explain the change"
 
+# Start without a local project folder
+zeth --no-project
+zeth run --no-project "research this API and make a plan"
+
 # Manage memory
 zeth memory list
 zeth memory add "prefer Bun APIs in this repository"
 zeth memory search "Bun APIs"
+zeth memory health
+zeth memory reindex
+
+# Scaffold a connector
+zeth connector create my-connector
 ```
 
 ---
