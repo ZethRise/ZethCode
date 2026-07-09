@@ -15,7 +15,7 @@
   "dependencies": {
     "@zethrise/shared": "workspace:*",
     "@zethrise/ui": "workspace:*",
-    "aws4fetch": "^1.0.50",
+    "aws4fetch": "^1.0.20",
     "@pierre/diffs": "catalog:",
     "@solidjs/router": "catalog:",
     "@solidjs/start": "catalog:",
