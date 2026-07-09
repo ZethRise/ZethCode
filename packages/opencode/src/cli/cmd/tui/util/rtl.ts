@@ -2,6 +2,7 @@ import bidiFactory from "bidi-js"
 import reshaper from "arabic-persian-reshaper"
 
 const RTL_RE = /[\u0590-\u08ff\ufb50-\ufdff\ufe70-\ufeff]/
+const STRONG_RE = /[A-Za-z\u0590-\u08ff\ufb50-\ufdff\ufe70-\ufeff]/
 const FENCE_RE = /^\s*(```|~~~)/
 const CURSOR_MARK = "\ue000"
 const TATWEEL = "\u0640"
@@ -11,6 +12,10 @@ const bidi = bidiFactory()
 
 export function hasRTL(text: string) {
   return RTL_RE.test(text)
+}
+
+export function isRTL(text: string) {
+  return RTL_RE.test(text.match(STRONG_RE)?.[0] ?? "")
 }
 
 function elongateJoins(line: string) {
@@ -23,7 +28,7 @@ function elongateJoins(line: string) {
 
 function reorderLine(line: string, options?: { elongate?: boolean }) {
   const shaped = reshaper.PersianShaper.convertArabic(options?.elongate ? elongateJoins(line) : line)
-  const embedding = bidi.getEmbeddingLevels(shaped, "rtl")
+  const embedding = bidi.getEmbeddingLevels(shaped, isRTL(line) ? "rtl" : "ltr")
   const chars = shaped.split("")
 
   for (const [index, char] of bidi.getMirroredCharactersMap(shaped, embedding)) {

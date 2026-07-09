@@ -109,6 +109,7 @@ import { ActorRegistry } from "@/actor/registry"
 import { Metrics } from "@/metrics"
 import { resolveInvocationStyle, type ToolStyleConfig } from "../tool/invocation-style"
 import { shouldAutoDream, shouldAutoDistill, DREAM_TASK, DISTILL_TASK, AUTO_DREAM_TITLE, AUTO_DISTILL_TITLE } from "./auto-dream"
+import { ProjectMemory } from "./project-memory"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -1940,6 +1941,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         // so session.post reports outcome="cancelled" instead of "error".
         let cancelled = false
         let cancelReason: string | undefined
+        let projectMemoryMissingAtStart = false
 
         // Fires session.post exactly once via Effect.onExit on the body below.
         // Without this wrapper any yielded failure inside the while loop (provider
@@ -1988,6 +1990,55 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               },
               {},
             )
+            if (
+              projectMemoryMissingAtStart &&
+              outcome === "completed" &&
+              resolvedAgentID === "main" &&
+              !session.parentID &&
+              ctx.project.id !== "global" &&
+              ctx.worktree !== path.parse(ctx.worktree).root &&
+              session.title !== AUTO_DREAM_TITLE &&
+              session.title !== AUTO_DISTILL_TITLE
+            ) {
+              const localMemory = yield* ProjectMemory.ensureLocalMemory({
+                projectID: ctx.project.id,
+                directory: ctx.worktree,
+              }).pipe(Effect.catch(() => Effect.succeed(undefined)))
+              const model =
+                finalAsst && localMemory
+                  ? { providerID: finalAsst.providerID, modelID: finalAsst.modelID }
+                  : undefined
+              if (model && localMemory) {
+                const { AppRuntime } = yield* Effect.promise(() => import("@/effect/app-runtime"))
+                yield* Effect.sync(() => {
+                  AppRuntime.runPromise(
+                    Service.use((sp) =>
+                      Session.Service.use((svc) =>
+                        Effect.gen(function* () {
+                          const s = yield* svc.create({ title: AUTO_DREAM_TITLE })
+                          yield* sp.prompt({
+                            sessionID: s.id,
+                            agent: "dream",
+                            model,
+                            parts: [
+                              {
+                                type: "text",
+                                text: [
+                                  DREAM_TASK,
+                                  "",
+                                  `Project-local MEMORY.md is ${localMemory}.`,
+                                  "Read the just-finished session, consolidate durable project facts, and update that file in place.",
+                                ].join("\n"),
+                              },
+                            ],
+                          })
+                        }),
+                      ),
+                    ),
+                  ).catch((err) => log.error("missing-memory auto-dream failed", { sessionID, error: String(err) }))
+                })
+              }
+            }
           }).pipe(Effect.ignore)
 
         return yield* Effect.gen(function* () {
@@ -2006,6 +2057,23 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               }),
             )
           }
+        const mcpStatus: Record<string, { status: string }> = yield* mcp.status().pipe(Effect.catch(() => Effect.succeed({})))
+        if (mcpStatus["codebase-memory"]?.status !== "connected") {
+          yield* mcp.connect("codebase-memory").pipe(Effect.ignore)
+        }
+        if (
+          resolvedAgentID === "main" &&
+          !session.parentID &&
+          ctx.project.id !== "global" &&
+          ctx.worktree !== path.parse(ctx.worktree).root &&
+          session.title !== AUTO_DREAM_TITLE &&
+          session.title !== AUTO_DISTILL_TITLE
+        ) {
+          projectMemoryMissingAtStart = !(yield* ProjectMemory.hasProjectMemory({
+            projectID: ctx.project.id,
+            directory: ctx.worktree,
+          }).pipe(Effect.catch(() => Effect.succeed(true))))
+        }
         const agentMetrics = { tokens_in: 0, tokens_out: 0, files_changed: 0 }
         const trajectoryForStep = (currentMsgs: MessageV2.WithParts[], assistant: MessageV2.Assistant) =>
           serializeTrajectoryMessages(

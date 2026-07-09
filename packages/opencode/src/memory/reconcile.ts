@@ -92,14 +92,14 @@ export async function indexFromDisk(
 }
 
 export async function reconcileMemory(
-  roots: { mimo: string; cc?: string },
+  roots: { mimo: string; cc?: string; extra?: Array<{ path: string; loc: MemoryLocator; bodyType: "mimo" | "cc" }> },
 ): Promise<{ indexed: number; pruned: number }> {
   // Collect disk paths from BOTH roots before pruning. If we pruned per-root,
   // enabling CC indexing on a fresh run would prune all mimo rows (and vice
   // versa) because each walk's set is missing the other root's paths.
   const mimoFiles = new Set(await walkMemoryDir(roots.mimo))
   const ccFiles = roots.cc ? new Set(await walkCcRoot(roots.cc)) : new Set<string>()
-  const diskPaths = new Set<string>([...mimoFiles, ...ccFiles])
+  const diskPaths = new Set<string>([...mimoFiles, ...ccFiles, ...(roots.extra ?? []).map((item) => item.path)])
 
   const indexed = new Map<string, string>(
     Database.use((db) =>
@@ -137,6 +137,10 @@ export async function reconcileMemory(
       continue
     }
     const result = await indexFromDisk(p, loc, "cc", indexed.get(p))
+    if (result === "updated") indexedCount++
+  }
+  for (const item of roots.extra ?? []) {
+    const result = await indexFromDisk(item.path, item.loc, item.bodyType, indexed.get(item.path))
     if (result === "updated") indexedCount++
   }
 

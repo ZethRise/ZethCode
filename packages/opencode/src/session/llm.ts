@@ -32,6 +32,7 @@ import * as OtelTracer from "@effect/opentelemetry/Tracer"
 import { ActorRegistry } from "@/actor/registry"
 import { Memory } from "@/memory"
 import { isRetryableTransientError } from "./retry"
+import { ProjectMemory } from "./project-memory"
 
 const log = Log.create({ service: "llm" })
 export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
@@ -98,10 +99,13 @@ export const persistentRetrySchedule = Schedule.exponential("500 millis", 2).pip
  */
 function buildMemoryInstructions(sessionID: SessionID, projectID: ProjectID, memoryRoot: string): string {
   const memoryFile = path.join(memoryRoot, "projects", projectID, "MEMORY.md")
+  const localMemoryFile = ProjectMemory.localMemoryPath(Instance.worktree)
   const checkpointFile = path.join(memoryRoot, "sessions", sessionID, "checkpoint.md")
   const sessionMemoryDir = path.join(memoryRoot, "sessions", sessionID)
   const globalMemoryFile = path.join(memoryRoot, "global", "MEMORY.md")
   return `# Memory system
+
+Project-local MEMORY.md: \`${localMemoryFile}\`. Prefer this path when reading or editing project memory.
 
 You have a persistent file-based memory system. Four file types:
 

@@ -6,6 +6,7 @@ import { Database } from "../storage"
 import { Config } from "../config"
 import { reconcileMemory } from "./reconcile"
 import { buildFtsQuery } from "./fts-query"
+import { InstanceState } from "@/effect"
 
 type SearchRow = {
   path: string
@@ -46,7 +47,24 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
     const reconcile = Effect.fn("Memory.reconcile")(function* () {
       const cfg = yield* config.get()
       const cc = cfg.memory?.cc_index ? ccBase : undefined
-      return yield* Effect.promise(() => reconcileMemory({ mimo: root, cc }))
+      const ctx = yield* InstanceState.context.pipe(Effect.catch(() => Effect.succeed(undefined)))
+      const localMemory = ctx && ctx.project.id !== "global" && ctx.worktree !== path.parse(ctx.worktree).root
+      return yield* Effect.promise(() =>
+        reconcileMemory({
+          mimo: root,
+          cc,
+          extra:
+            localMemory
+              ? [
+                  {
+                    path: path.join(ctx.worktree, ".zethcode", "MEMORY.md"),
+                    loc: { scope: "projects", scope_id: ctx.project.id, type: "memory", key: "MEMORY" },
+                    bodyType: "mimo",
+                  },
+                ]
+              : undefined,
+        }),
+      )
     })
 
     const search = Effect.fn("Memory.search")(function* (input: {
@@ -59,8 +77,7 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
       // Lazy reconcile before search (covers off-tool writes); honour config flag.
       const cfg = yield* config.get()
       if (cfg.checkpoint?.memory_reconcile_on_search ?? true) {
-        const cc = cfg.memory?.cc_index ? ccBase : undefined
-        yield* Effect.promise(() => reconcileMemory({ mimo: root, cc }))
+        yield* reconcile()
       }
 
       const limit = input.limit ?? 10

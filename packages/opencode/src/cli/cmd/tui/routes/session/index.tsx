@@ -95,7 +95,7 @@ import { DialogGoUpsell } from "../../component/dialog-go-upsell"
 import { DialogTokenPlan } from "../../component/dialog-token-plan"
 import { SessionRetry } from "@/session/retry"
 import { getRevertDiffFiles } from "../../util/revert-diff"
-import { hasRTL, rtlVisual } from "../../util/rtl"
+import { hasRTL, isRTL, rtlVisual } from "../../util/rtl"
 
 addDefaultParsers(parsers.parsers)
 
@@ -1416,7 +1416,7 @@ function UserMessage(props: {
   const queuedFg = createMemo(() => selectedForeground(theme, color()))
   const metadataVisible = createMemo(() => queued() || ctx.showTimestamps())
   const displayText = createMemo(() => rtlVisual(text()?.text ?? ""))
-  const rtl = createMemo(() => hasRTL(text()?.text ?? ""))
+  const rtl = createMemo(() => isRTL(text()?.text ?? ""))
 
   return (
     <>
@@ -1863,11 +1863,12 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
   const ctx = use()
   const { theme, syntax } = useTheme()
   const content = createMemo(() => rtlVisual(props.part.text.trim()))
-  const rtl = createMemo(() => hasRTL(props.part.text))
+  const hasRtl = createMemo(() => hasRTL(props.part.text))
+  const rtl = createMemo(() => isRTL(props.part.text))
   return (
     <Show when={props.part.text.trim()}>
       <Show
-        when={rtl()}
+        when={hasRtl()}
         fallback={
           <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>
             <Switch>
@@ -1898,17 +1899,18 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
       >
         <box
           id={"text-" + props.part.id}
-          paddingRight={3}
+          paddingLeft={rtl() ? 0 : 3}
+          paddingRight={rtl() ? 3 : 0}
           marginTop={1}
           flexShrink={0}
           width="100%"
-          alignItems="flex-end"
+          alignItems={rtl() ? "flex-end" : "flex-start"}
         >
           <Switch>
             <Match when={Flag.ZETHCODE_EXPERIMENTAL_MARKDOWN}>
               <markdown
                 syntaxStyle={syntax()}
-                streaming={true}
+                streaming={false}
                 content={content()}
                 conceal={ctx.conceal()}
                 fg={theme.markdownText}
@@ -1920,11 +1922,11 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
               <code
                 filetype="markdown"
                 drawUnstyledText={false}
-                streaming={true}
                 syntaxStyle={syntax()}
                 content={content()}
                 conceal={ctx.conceal()}
                 fg={theme.text}
+                streaming={false}
                 wrapMode="word"
                 width="100%"
               />
