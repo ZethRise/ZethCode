@@ -2,7 +2,7 @@
 #
 # Package the prebuilt `zeth` Linux binary into a .deb and an .AppImage.
 #
-# Usage: package-linux.sh <arch: x64|arm64> <version>
+# Usage: package-linux.sh <arch: x64|x64-baseline|arm64> <version>
 #
 # Prerequisites:
 #   - The binary already exists at
@@ -11,14 +11,14 @@
 #
 set -euo pipefail
 
-ARCH="${1:?usage: package-linux.sh <x64|arm64> <version>}"
+ARCH="${1:?usage: package-linux.sh <x64|x64-baseline|arm64> <version>}"
 VERSION="${2:?usage: package-linux.sh <arch> <version>}"
 
 # Map the build arch to the arch strings each format expects.
 case "$ARCH" in
-  x64)   DEB_ARCH="amd64";   APPIMAGE_ARCH="x86_64" ;;
-  arm64) DEB_ARCH="arm64";   APPIMAGE_ARCH="aarch64" ;;
-  *) echo "error: unsupported arch '$ARCH' (expected x64 or arm64)"; exit 1 ;;
+  x64|x64-baseline) DEB_ARCH="amd64"; APPIMAGE_ARCH="x86_64" ;;
+  arm64)            DEB_ARCH="arm64"; APPIMAGE_ARCH="aarch64" ;;
+  *) echo "error: unsupported arch '$ARCH' (expected x64, x64-baseline, or arm64)"; exit 1 ;;
 esac
 
 PKG_NAME="zethcode"
@@ -29,6 +29,7 @@ HOMEPAGE="https://github.com/ZethRise/ZethCode"
 REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 DIST_DIR="${REPO_ROOT}/packages/opencode/dist"
 BINARY="${DIST_DIR}/zethcode-linux-${ARCH}/bin/zeth"
+MEMORY_BINARY="${DIST_DIR}/zethcode-linux-${ARCH}/bin/codebase-memory-mcp"
 
 ICON_512="${REPO_ROOT}/packages/identity/mark-512x512.png"
 ICON_192="${REPO_ROOT}/packages/identity/mark-192x192.png"
@@ -36,6 +37,10 @@ ICON_192="${REPO_ROOT}/packages/identity/mark-192x192.png"
 if [ ! -f "$BINARY" ]; then
   echo "error: binary not found at $BINARY"
   echo "did you run script/build.ts --os=linux --arch=${ARCH} first?"
+  exit 1
+fi
+if [ ! -f "$MEMORY_BINARY" ]; then
+  echo "error: memory binary not found at $MEMORY_BINARY"
   exit 1
 fi
 for icon in "$ICON_512" "$ICON_192"; do
@@ -68,6 +73,7 @@ mkdir -p "$DEB_ROOT/DEBIAN" \
          "$DEB_ROOT/usr/share/icons/hicolor/192x192/apps"
 
 install -m 0755 "$BINARY" "$DEB_ROOT/usr/bin/zeth"
+install -m 0755 "$MEMORY_BINARY" "$DEB_ROOT/usr/bin/codebase-memory-mcp"
 cp "$ICON_512" "$DEB_ROOT/usr/share/icons/hicolor/512x512/apps/${PKG_NAME}.png"
 cp "$ICON_192" "$DEB_ROOT/usr/share/icons/hicolor/192x192/apps/${PKG_NAME}.png"
 printf '%s\n' "$DESKTOP_ENTRY" > "$DEB_ROOT/usr/share/applications/${PKG_NAME}.desktop"
@@ -109,6 +115,7 @@ mkdir -p "$APPDIR/usr/bin" \
          "$APPDIR/usr/share/icons/hicolor/192x192/apps"
 
 install -m 0755 "$BINARY" "$APPDIR/usr/bin/zeth"
+install -m 0755 "$MEMORY_BINARY" "$APPDIR/usr/bin/codebase-memory-mcp"
 cp "$ICON_512" "$APPDIR/usr/share/icons/hicolor/512x512/apps/${PKG_NAME}.png"
 cp "$ICON_192" "$APPDIR/usr/share/icons/hicolor/192x192/apps/${PKG_NAME}.png"
 # appimagetool reads the .desktop from the AppDir root.

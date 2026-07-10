@@ -31,6 +31,7 @@ logs/
 *.bun-build
 tsconfig.tsbuildinfo
 .dev-home/
+packages/opencode/.cache-cbm/extract-*/
 
 # Local agent harness state
 .claude/

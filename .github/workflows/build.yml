@@ -27,6 +27,8 @@ jobs:
         include:
           - arch: x64
             runner: ubuntu-latest
+          - arch: x64-baseline
+            runner: ubuntu-latest
           - arch: arm64
             runner: ubuntu-24.04-arm
 
@@ -65,6 +67,65 @@ jobs:
           path: |
             packages/opencode/dist/zethcode-linux-${{ matrix.arch }}.deb
             packages/opencode/dist/zethcode-linux-${{ matrix.arch }}.AppImage
+
+      - name: Package musl archive
+        shell: bash
+        run: |
+          tar -C "packages/opencode/dist/zethcode-linux-${{ matrix.arch }}-musl/bin" -czf "packages/opencode/dist/zethcode-linux-${{ matrix.arch }}-musl.tar.gz" .
+
+      - name: Upload Linux musl archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: zethcode-linux-${{ matrix.arch }}-musl
+          path: packages/opencode/dist/zethcode-linux-${{ matrix.arch }}-musl.tar.gz
+
+  build-macos:
+    name: Build macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x64
+            runner: macos-26-intel
+          - arch: x64-baseline
+            runner: macos-26-intel
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Build SDK
+        run: bun run ./packages/sdk/js/script/build.ts
+
+      - name: Set build version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(bun -e "console.log(require('./packages/opencode/package.json').version)")
+          fi
+          echo "ZETHCODE_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Run build script
+        run: bun run ./packages/opencode/script/build.ts --os=darwin --arch=${{ matrix.arch }}
+
+      - name: Package macOS archive
+        shell: bash
+        run: |
+          tar -C "packages/opencode/dist/zethcode-darwin-${{ matrix.arch }}/bin" -czf "packages/opencode/dist/zethcode-darwin-${{ matrix.arch }}.tar.gz" .
+
+      - name: Upload macOS archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: zethcode-darwin-${{ matrix.arch }}
+          path: packages/opencode/dist/zethcode-darwin-${{ matrix.arch }}.tar.gz
 
   build-windows:
     name: Build Windows (${{ matrix.arch }})
@@ -113,13 +174,14 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build-linux, build-windows]
+    needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     if: |
       always() &&
       github.event.inputs.create_release == 'true' &&
-      (needs.build-linux.result == 'success' || needs.build-linux.result == 'failed') &&
-      (needs.build-windows.result == 'success' || needs.build-windows.result == 'failed')
+      needs.build-linux.result == 'success' &&
+      needs.build-macos.result == 'success' &&
+      needs.build-windows.result == 'success'
 
     steps:
       - name: Checkout repository
@@ -156,4 +218,4 @@ jobs:
           fi
 
           echo "Uploading build artifacts to release $TAG..."
-          find ./artifacts \( -name "*.deb" -o -name "*.AppImage" -o -name "*.exe" \) -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber --repo "${{ github.repository }}"
+          find ./artifacts \( -name "*.deb" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.tar.gz" \) -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber --repo "${{ github.repository }}"

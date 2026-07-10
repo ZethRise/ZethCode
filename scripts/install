@@ -20,8 +20,8 @@ Options:
         --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
 
 Examples:
-    curl -fsSL https://raw.githubusercontent.com/ZethRise/ZethCode/main/scripts/install | bash
-    curl -fsSL https://raw.githubusercontent.com/ZethRise/ZethCode/main/scripts/install | bash -s -- --version 0.1.0
+    curl -fsSL https://raw.githubusercontent.com/ZethRise/ZethCode/master/scripts/install | bash
+    curl -fsSL https://raw.githubusercontent.com/ZethRise/ZethCode/master/scripts/install | bash -s -- --version 1.0.6
     ./install --binary /path/to/zeth
 EOF
 }
@@ -109,11 +109,6 @@ else
         ;;
     esac
 
-    archive_ext=".zip"
-    if [ "$os" = "linux" ]; then
-      archive_ext=".tar.gz"
-    fi
-
     is_musl=false
     if [ "$os" = "linux" ]; then
       if [ -f /etc/alpine-release ]; then
@@ -161,55 +156,52 @@ else
     if [ "$needs_baseline" = "true" ]; then
       target="$target-baseline"
     fi
-    if [ "$is_musl" = "true" ]; then
+    if [ "$os" = "linux" ] && [ "$is_musl" = "true" ]; then
       target="$target-musl"
     fi
 
-    filename="$APP-$target$archive_ext"
-
-
-    if [ "$os" = "linux" ]; then
-        if ! command -v tar >/dev/null 2>&1; then
-             echo -e "${RED}Error: 'tar' is required but not installed.${NC}"
-             exit 1
+    case "$os" in
+      linux)
+        if [ "$is_musl" = "true" ]; then
+          filename="$APP-$target.tar.gz"
+          asset_type="archive"
+        else
+          filename="$APP-$target.AppImage"
+          asset_type="appimage"
         fi
-    else
-        if ! command -v unzip >/dev/null 2>&1; then
-            echo -e "${RED}Error: 'unzip' is required but not installed.${NC}"
-            exit 1
-        fi
+        ;;
+      darwin)
+        filename="$APP-$target.tar.gz"
+        asset_type="archive"
+        ;;
+      windows)
+        filename="$APP-$target.exe"
+        asset_type="binary"
+        ;;
+    esac
+
+    if [ "$asset_type" = "archive" ] && ! command -v tar >/dev/null 2>&1; then
+        echo -e "${RED}Error: 'tar' is required but not installed.${NC}"
+        exit 1
     fi
 
-    # Download from Xiaomi FDS (fast in mainland China). Layout:
-    #   $ZETH_FDS_BASE/releases/latest          -> text file containing the latest version (e.g. 0.1.0)
-    #   $ZETH_FDS_BASE/releases/v<version>/<filename>
-    fds_base="${ZETH_FDS_BASE:-https://zethcode.cnbj1.mi-fds.com/zethcode/zethcode}"
-    fds_base="${fds_base%/}"
+    repository="${ZETHCODE_GITHUB_REPOSITORY:-ZethRise/ZethCode}"
+    releases_base="${ZETHCODE_RELEASES_BASE:-https://github.com/$repository/releases}"
+    releases_base="${releases_base%/}"
 
     if [ -z "$requested_version" ]; then
-        specific_version=$(curl -fsSL "${fds_base}/releases/latest" 2>/dev/null | tr -d '[:space:]' | sed 's/^v//')
-
-        if [ -z "$specific_version" ]; then
-            echo -e "${RED}Failed to fetch version information${NC}"
-            echo -e "${MUTED}Could not resolve the latest release from FDS. Please check your network and retry,${NC}"
-            echo -e "${MUTED}or install a specific version, e.g.: bash -s -- --version 0.1.0${NC}"
+        if ! latest_url=$(curl -fsSL -o /dev/null -w '%{url_effective}' "${releases_base}/latest"); then
+            echo -e "${RED}Failed to resolve the latest GitHub release.${NC}"
+            echo -e "${MUTED}Check your network or install a specific version with --version.${NC}"
             exit 1
         fi
-        url="${fds_base}/releases/v${specific_version}/$filename"
+        specific_version="${latest_url##*/}"
+        specific_version="${specific_version#v}"
     else
-        # Strip leading 'v' if present
         requested_version="${requested_version#v}"
         specific_version=$requested_version
-        url="${fds_base}/releases/v${requested_version}/$filename"
-
-        # Verify the artifact exists before downloading
-        http_status=$(curl -sI -o /dev/null -w "%{http_code}" "$url")
-        if [ "$http_status" = "404" ]; then
-            echo -e "${RED}Error: Release v${requested_version} not found${NC}"
-            echo -e "${MUTED}Checked: ${url}${NC}"
-            exit 1
-        fi
     fi
+    url="${releases_base}/download/v${specific_version}/${filename}"
 fi
 
 print_message() {
@@ -295,7 +287,7 @@ download_with_progress() {
     trap "trap - RETURN; rm -f \"$tracefile\"; printf '\033[?25h' >&4; exec 4>&-" RETURN
 
     (
-        curl --trace-ascii "$tracefile" -s -L -o "$output" "$url"
+        curl --trace-ascii "$tracefile" -fsSL -o "$output" "$url"
     ) &
     local curl_pid=$!
 
@@ -338,18 +330,42 @@ download_and_install() {
     mkdir -p "$tmp_dir"
 
     if [[ "$os" == "windows" ]] || ! [ -t 2 ] || ! download_with_progress "$url" "$tmp_dir/$filename"; then
-        # Fallback to standard curl on Windows, non-TTY environments, or if custom progress fails
-        curl -# -L -o "$tmp_dir/$filename" "$url"
+        if ! curl -# -fL -o "$tmp_dir/$filename" "$url"; then
+            rm -rf "$tmp_dir"
+            print_message error "Failed to download $filename from GitHub release v$specific_version."
+            print_message info "${MUTED}This release may not include a build for $target.${NC}"
+            exit 1
+        fi
     fi
 
-    if [ "$os" = "linux" ]; then
+    local installed_name="zeth"
+    if [ "$asset_type" = "archive" ]; then
         tar -xzf "$tmp_dir/$filename" -C "$tmp_dir"
+        mv "$tmp_dir/zeth" "$INSTALL_DIR/zeth"
+        if [ -f "$tmp_dir/codebase-memory-mcp" ]; then
+            mv "$tmp_dir/codebase-memory-mcp" "$INSTALL_DIR/codebase-memory-mcp"
+            chmod 755 "$INSTALL_DIR/codebase-memory-mcp"
+        fi
+    elif [ "$asset_type" = "appimage" ]; then
+        chmod 755 "$tmp_dir/$filename"
+        if ! (cd "$tmp_dir" && "./$filename" --appimage-extract >/dev/null); then
+            rm -rf "$tmp_dir"
+            print_message error "Failed to extract $filename."
+            exit 1
+        fi
+        mv "$tmp_dir/squashfs-root/usr/bin/zeth" "$INSTALL_DIR/zeth"
+        if [ -f "$tmp_dir/squashfs-root/usr/bin/codebase-memory-mcp" ]; then
+            mv "$tmp_dir/squashfs-root/usr/bin/codebase-memory-mcp" "$INSTALL_DIR/codebase-memory-mcp"
+            chmod 755 "$INSTALL_DIR/codebase-memory-mcp"
+        fi
     else
-        unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
+        if [ "$os" = "windows" ]; then
+            installed_name="zeth.exe"
+        fi
+        mv "$tmp_dir/$filename" "$INSTALL_DIR/$installed_name"
     fi
 
-    mv "$tmp_dir/zeth" "$INSTALL_DIR"
-    chmod 755 "${INSTALL_DIR}/zeth"
+    chmod 755 "${INSTALL_DIR}/$installed_name"
     rm -rf "$tmp_dir"
 }
 
