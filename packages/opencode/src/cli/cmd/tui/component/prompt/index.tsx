@@ -1141,6 +1141,7 @@ export function Prompt(props: PromptProps) {
     }
 
     submitLock = true
+    let createdSessionID: string | undefined
     try {
       let sessionID = props.sessionID
       if (sessionID == null) {
@@ -1158,6 +1159,7 @@ export function Prompt(props: PromptProps) {
         }
 
         sessionID = res.data.id
+        createdSessionID = sessionID
       }
 
       const messageID = MessageID.ascending()
@@ -1188,7 +1190,7 @@ export function Prompt(props: PromptProps) {
         : undefined
 
       if (store.mode === "shell") {
-        void sdk.client.session.shell({
+        await sdk.client.session.shell({
           sessionID,
           agent: agent.name,
           model: {
@@ -1231,7 +1233,7 @@ export function Prompt(props: PromptProps) {
         const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
         const args = firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")
 
-        void sdk.client.session.command({
+        await sdk.client.session.command({
           sessionID,
           command: command.slice(1),
           arguments: args,
@@ -1247,29 +1249,22 @@ export function Prompt(props: PromptProps) {
             })),
         })
       } else {
-        sdk.client.session
-          .promptAsync({
-            sessionID,
-            ...selectedModel,
-            messageID,
-            agent: agent.name,
-            model: selectedModel,
-            variant,
-            parts: [
-              {
-                id: PartID.ascending(),
-                type: "text",
-                text: inputText,
-              },
-              ...nonTextParts.map(assign),
-            ],
-          })
-          .catch((err) => {
-            toast.show({
-              message: err instanceof Error ? err.message : "Failed to send message",
-              variant: "error",
-            })
-          })
+        await sdk.client.session.promptAsync({
+          sessionID,
+          ...selectedModel,
+          messageID,
+          agent: agent.name,
+          model: selectedModel,
+          variant,
+          parts: [
+            {
+              id: PartID.ascending(),
+              type: "text",
+              text: inputText,
+            },
+            ...nonTextParts.map(assign),
+          ],
+        })
       }
       history.append({
         ...store.prompt,
@@ -1293,6 +1288,10 @@ export function Prompt(props: PromptProps) {
         }, 50)
       input.clear()
       return true
+    } catch (error) {
+      if (createdSessionID) await sdk.client.session.delete({ sessionID: createdSessionID }).catch(() => {})
+      toast.show({ message: error instanceof Error ? error.message : "Failed to send message", variant: "error" })
+      return false
     } finally {
       submitLock = false
     }

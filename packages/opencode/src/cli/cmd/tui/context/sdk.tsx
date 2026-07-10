@@ -77,15 +77,14 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       sse?.abort()
       const ctrl = new AbortController()
       sse = ctrl
-      ;(async () => {
+      void (async () => {
         let attempt = 0
-        while (true) {
-          if (abort.signal.aborted || ctrl.signal.aborted) break
-
-          const events = await sdk.global.event({
-            signal: ctrl.signal,
-            sseMaxRetryAttempts: 0,
-          })
+        while (!abort.signal.aborted && !ctrl.signal.aborted) {
+          try {
+            const events = await sdk.global.event({
+              signal: ctrl.signal,
+              sseMaxRetryAttempts: 0,
+            })
 
           if (Flag.ZETHCODE_EXPERIMENTAL_WORKSPACES) {
             // Start syncing workspaces, it's important to do this after
@@ -93,9 +92,12 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
             await sdk.sync.start().catch(() => {})
           }
 
-          for await (const event of events.stream) {
-            if (ctrl.signal.aborted) break
-            handleEvent(event)
+            for await (const event of events.stream) {
+              if (ctrl.signal.aborted) break
+              handleEvent(event)
+            }
+          } catch (error) {
+            if (!abort.signal.aborted && !ctrl.signal.aborted) console.error("TUI event stream failed", error)
           }
 
           if (timer) clearTimeout(timer)
@@ -107,7 +109,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
           const backoff = Math.min(retryDelay * 2 ** (attempt - 1), maxRetryDelay)
           await new Promise((resolve) => setTimeout(resolve, backoff))
         }
-      })().catch(() => {})
+      })()
     }
 
     onMount(async () => {

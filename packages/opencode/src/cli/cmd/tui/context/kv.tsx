@@ -3,7 +3,7 @@ import { Filesystem } from "@/util"
 import { Flock } from "@zethrise/shared/util/flock"
 import { rename, rm } from "fs/promises"
 import { createSignal, type Setter } from "solid-js"
-import { createStore, unwrap } from "solid-js/store"
+import { createStore } from "solid-js/store"
 import { createSimpleContext } from "./helper"
 import path from "path"
 
@@ -31,7 +31,7 @@ export const { use: useKV, provider: KVProvider } = createSimpleContext({
     // Read under the same lock used for writes because kv.json is shared across processes.
     Flock.withLock(lock, () => Filesystem.readJson<Record<string, any>>(filePath))
       .then((x) => {
-        setStore(x)
+        setStore((store) => ({ ...x, ...store }))
       })
       .catch((error) => {
         console.error("Failed to read KV state", { filePath, error })
@@ -63,19 +63,28 @@ export const { use: useKV, provider: KVProvider } = createSimpleContext({
       },
       set(key: string, value: any) {
         setStore(key, value)
-        const snapshot = structuredClone(unwrap(store))
         write = write
-          .then(() => Flock.withLock(lock, () => writeSnapshot(snapshot)))
+          .then(() =>
+            Flock.withLock(lock, async () => {
+              const snapshot = await Filesystem.readJson<Record<string, any>>(filePath).catch((): Record<string, any> => ({}))
+              snapshot[key] = value
+              return writeSnapshot(snapshot)
+            }),
+          )
           .catch((error) => {
             console.error("Failed to write KV state", { filePath, error })
           })
       },
       delete(key: string) {
         setStore(key, undefined)
-        const snapshot = structuredClone(unwrap(store))
-        delete snapshot[key]
         write = write
-          .then(() => Flock.withLock(lock, () => writeSnapshot(snapshot)))
+          .then(() =>
+            Flock.withLock(lock, async () => {
+              const snapshot = await Filesystem.readJson<Record<string, any>>(filePath).catch((): Record<string, any> => ({}))
+              delete snapshot[key]
+              return writeSnapshot(snapshot)
+            }),
+          )
           .catch((error) => {
             console.error("Failed to write KV state", { filePath, error })
           })

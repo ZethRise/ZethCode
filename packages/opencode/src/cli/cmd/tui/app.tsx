@@ -1129,7 +1129,8 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         // Retry once after a short delay
         await new Promise((r) => setTimeout(r, 500))
         try {
-          await doReply()
+          const retry = await doReply()
+          if (!retry.ok) throw new Error(`reply failed: ${retry.status}`)
         } catch (retryErr: any) {
           toast.show({
             variant: "error",

@@ -26,8 +26,13 @@ export function DialogConsoleOrg() {
   const { theme } = useTheme()
 
   const [orgs] = createResource(async () => {
-    const result = await sdk.client.experimental.console.listOrgs({}, { throwOnError: true })
-    return result.data?.orgs ?? []
+    try {
+      const result = await sdk.client.experimental.console.listOrgs({}, { throwOnError: true })
+      return result.data?.orgs ?? []
+    } catch (error) {
+      toast.show({ message: error instanceof Error ? error.message : "Failed to load orgs", variant: "error" })
+      return []
+    }
   })
 
   const current = createMemo(() => orgs()?.find((item) => item.active))

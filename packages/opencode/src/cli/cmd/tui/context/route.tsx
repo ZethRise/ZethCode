@@ -2,6 +2,7 @@ import { createStore, reconcile } from "solid-js/store"
 import { createMemo, type Accessor } from "solid-js"
 import { createSimpleContext } from "./helper"
 import type { PromptInfo } from "../component/prompt/history"
+import z from "zod"
 
 export type HomeRoute = {
   type: "home"
@@ -30,16 +31,27 @@ export type PluginRoute = {
 
 export type Route = HomeRoute | SessionRoute | PluginRoute
 
+const RouteSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("home") }).passthrough(),
+  z.object({ type: z.literal("session"), sessionID: z.string().min(1) }).passthrough(),
+  z.object({ type: z.literal("plugin"), id: z.string().min(1) }).passthrough(),
+])
+
+function initialRoute(): Route {
+  const value = process.env["ZETHCODE_ROUTE"]
+  if (!value) return { type: "home" }
+  try {
+    return RouteSchema.safeParse(JSON.parse(value)).data ?? { type: "home" }
+  } catch {
+    return { type: "home" }
+  }
+}
+
 export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
   name: "Route",
   init: (props: { initialRoute?: Route }) => {
     const [store, setStore] = createStore<Route>(
-      props.initialRoute ??
-        (process.env["ZETHCODE_ROUTE"]
-          ? JSON.parse(process.env["ZETHCODE_ROUTE"])
-          : {
-              type: "home",
-            }),
+      props.initialRoute ?? initialRoute(),
     )
 
     return {

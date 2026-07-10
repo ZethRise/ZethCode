@@ -74,7 +74,7 @@ export function DialogImageList() {
         title: t("tui.dialog.image.import.option"),
         value: IMPORT_VALUE,
         onSelect: () => {
-          void importImage()
+          void importImage().catch(() => {})
         },
       },
     ]

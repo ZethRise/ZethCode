@@ -61,6 +61,7 @@ export class RealtimeVAD {
   private bufferOffset = 0
 
   private srcBuffer: Int16Array = new Int16Array(0)
+  private srcLength = 0
   private srcBufferOffset = 0
 
   private active = false
@@ -110,10 +111,13 @@ export class RealtimeVAD {
   }
 
   push(audio: Int16Array) {
-    const newSrc = new Int16Array(this.srcBuffer.length + audio.length)
-    newSrc.set(this.srcBuffer)
-    newSrc.set(audio, this.srcBuffer.length)
-    this.srcBuffer = newSrc
+    if (this.srcBuffer.length < this.srcLength + audio.length) {
+      const next = new Int16Array(Math.max(this.srcLength + audio.length, Math.max(HOP_SIZE, this.srcBuffer.length * 2)))
+      next.set(this.srcBuffer.subarray(0, this.srcLength))
+      this.srcBuffer = next
+    }
+    this.srcBuffer.set(audio, this.srcLength)
+    this.srcLength += audio.length
 
     const newBuf = new Int16Array(this.buffer.length + audio.length)
     newBuf.set(this.buffer)
@@ -136,7 +140,7 @@ export class RealtimeVAD {
 
   flush() {
     if (!this.active) return
-    const audio = this.srcBuffer.slice(0, this.srcBuffer.length)
+    const audio = this.srcBuffer.slice(0, this.srcLength)
     if (audio.length > VAD_SAMPLE_RATE * 0.2) {
       const startS = this.srcBufferOffset / VAD_SAMPLE_RATE
       const endS = startS + audio.length / VAD_SAMPLE_RATE
@@ -168,6 +172,7 @@ export class RealtimeVAD {
     this.sumPositiveS = 0
     this.silenceStartS = null
     this.srcBuffer = new Int16Array(0)
+    this.srcLength = 0
     this.srcBufferOffset = this.bufferOffset
   }
 
@@ -192,7 +197,8 @@ export class RealtimeVAD {
         const newSrcOffset = Math.floor((chunkOffsetS - this.padStartS) * VAD_SAMPLE_RATE)
         const cutPos = newSrcOffset - this.srcBufferOffset
         if (cutPos > 0) {
-          this.srcBuffer = this.srcBuffer.slice(cutPos)
+          this.srcBuffer.copyWithin(0, cutPos, this.srcLength)
+          this.srcLength -= cutPos
           this.srcBufferOffset = newSrcOffset
         }
       }
@@ -211,14 +217,15 @@ export class RealtimeVAD {
       (chunkOffsetS - this.activeStartS >= this.maxSegmentS)
 
     if (shouldCut) {
-      const cutSrcPos = Math.floor(chunkOffsetS * VAD_SAMPLE_RATE) - this.srcBufferOffset
+      const cutSrcPos = Math.floor((chunkOffsetS + hopS) * VAD_SAMPLE_RATE) - this.srcBufferOffset
       const audio = this.srcBuffer.slice(0, cutSrcPos)
       if (audio.length > VAD_SAMPLE_RATE * 0.2) {
         const startS = this.srcBufferOffset / VAD_SAMPLE_RATE
         const endS = startS + audio.length / VAD_SAMPLE_RATE
         this.onSegment({ audio, startS, endS })
       }
-      this.srcBuffer = this.srcBuffer.slice(cutSrcPos)
+      this.srcBuffer.copyWithin(0, cutSrcPos, this.srcLength)
+      this.srcLength -= cutSrcPos
       this.srcBufferOffset += cutSrcPos
       this.active = false
       this.sumPositiveS = 0

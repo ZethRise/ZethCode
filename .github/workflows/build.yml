@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       create_release:
-        description: 'Create a draft GitHub release'
+        description: "Create a draft GitHub release"
         type: boolean
         required: false
         default: false
       version:
-        description: 'Release version (optional, e.g. 1.0.5. If empty, uses version from package.json)'
+        description: "Release version (optional, e.g. 1.0.6. If empty, uses version from package.json)"
         type: string
         required: false
-        default: '1.0.5'
+        default: "1.0.6"
 
 permissions:
   contents: write

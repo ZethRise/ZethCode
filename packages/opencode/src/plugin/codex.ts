@@ -187,7 +187,12 @@ const HTML_SUCCESS = `<!doctype html>
 </html>`
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
 }
 
 const HTML_ERROR = (error: string) => `<!doctype html>
@@ -378,6 +383,9 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
           "gpt-5.3-codex",
           "gpt-5.5",
           "gpt-5.5-pro",
+          "gpt-5.6-luna",
+          "gpt-5.6-terra",
+          "gpt-5.6-sol",
           "gpt-5.4",
           "gpt-5.4-mini",
         ])
@@ -611,4 +619,3 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
     },
   }
 }
-

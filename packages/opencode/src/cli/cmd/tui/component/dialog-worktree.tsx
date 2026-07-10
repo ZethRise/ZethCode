@@ -53,12 +53,17 @@ export function DialogWorktree() {
 
   async function switchTo(directory: string) {
     setBusy("Switching to worktree...")
-    await sdk.client.instance.dispose().catch(() => {})
-    sdk.switchDirectory(directory)
-    await sync.bootstrap()
-    route.navigate({ type: "home" })
-    dialog.clear()
-    toast.show({ message: `Switched to ${path.basename(directory)}`, variant: "success" })
+    try {
+      await sdk.client.instance.dispose()
+      sdk.switchDirectory(directory)
+      await sync.bootstrap()
+      route.navigate({ type: "home" })
+      dialog.clear()
+      toast.show({ message: `Switched to ${path.basename(directory)}`, variant: "success" })
+    } catch (error) {
+      setBusy(undefined)
+      toast.show({ message: error instanceof Error ? error.message : "Failed to switch worktree", variant: "error" })
+    }
   }
 
   async function create() {

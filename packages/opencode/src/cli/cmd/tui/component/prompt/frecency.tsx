@@ -4,7 +4,7 @@ import { Filesystem } from "@/util"
 import { onMount } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createSimpleContext } from "../../context/helper"
-import { appendFile, writeFile } from "fs/promises"
+import { writeFile } from "fs/promises"
 
 function calculateFrecency(entry?: { frequency: number; lastOpen: number }): number {
   if (!entry) return 0
@@ -15,10 +15,21 @@ function calculateFrecency(entry?: { frequency: number; lastOpen: number }): num
 
 const MAX_FRECENCY_ENTRIES = 1000
 
+function isFrecencyEntry(value: unknown): value is { path: string; frequency: number; lastOpen: number } {
+  if (!value || typeof value !== "object") return false
+  const item = value as Record<string, unknown>
+  return typeof item.path === "string" && typeof item.frequency === "number" && typeof item.lastOpen === "number"
+}
+
 export const { use: useFrecency, provider: FrecencyProvider } = createSimpleContext({
   name: "Frecency",
   init: () => {
     const frecencyPath = path.join(Global.Path.state, "frecency.jsonl")
+    let write = Promise.resolve()
+    const persist = (data: Record<string, { frequency: number; lastOpen: number }>) => {
+      const content = Object.entries(data).map(([path, entry]) => JSON.stringify({ path, ...entry })).join("\n")
+      write = write.then(() => writeFile(frecencyPath, content ? content + "\n" : "")).catch((error) => console.error("Failed to write frecency", error))
+    }
     onMount(async () => {
       const text = await Filesystem.readText(frecencyPath).catch(() => "")
       const lines = text
@@ -26,12 +37,12 @@ export const { use: useFrecency, provider: FrecencyProvider } = createSimpleCont
         .filter(Boolean)
         .map((line) => {
           try {
-            return JSON.parse(line) as { path: string; frequency: number; lastOpen: number }
+            return JSON.parse(line)
           } catch {
             return null
           }
         })
-        .filter((line): line is { path: string; frequency: number; lastOpen: number } => line !== null)
+        .filter(isFrecencyEntry)
 
       const latest = lines.reduce(
         (acc, entry) => {
@@ -45,16 +56,10 @@ export const { use: useFrecency, provider: FrecencyProvider } = createSimpleCont
         .sort((a, b) => b.lastOpen - a.lastOpen)
         .slice(0, MAX_FRECENCY_ENTRIES)
 
-      setStore(
-        "data",
-        Object.fromEntries(
-          sorted.map((entry) => [entry.path, { frequency: entry.frequency, lastOpen: entry.lastOpen }]),
-        ),
-      )
+      setStore("data", (data) => ({ ...Object.fromEntries(sorted.map((entry) => [entry.path, { frequency: entry.frequency, lastOpen: entry.lastOpen }])), ...data }))
 
       if (sorted.length > 0) {
-        const content = sorted.map((entry) => JSON.stringify(entry)).join("\n") + "\n"
-        writeFile(frecencyPath, content).catch(() => {})
+        persist(store.data)
       }
     })
 
@@ -69,16 +74,15 @@ export const { use: useFrecency, provider: FrecencyProvider } = createSimpleCont
         lastOpen: Date.now(),
       }
       setStore("data", absolutePath, newEntry)
-      appendFile(frecencyPath, JSON.stringify({ path: absolutePath, ...newEntry }) + "\n").catch(() => {})
-
       if (Object.keys(store.data).length > MAX_FRECENCY_ENTRIES) {
         const sorted = Object.entries(store.data)
           .sort(([, a], [, b]) => b.lastOpen - a.lastOpen)
           .slice(0, MAX_FRECENCY_ENTRIES)
         setStore("data", Object.fromEntries(sorted))
-        const content = sorted.map(([path, entry]) => JSON.stringify({ path, ...entry })).join("\n") + "\n"
-        writeFile(frecencyPath, content).catch(() => {})
+        persist(store.data)
+        return
       }
+      persist(store.data)
     }
 
     return {

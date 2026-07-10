@@ -1202,50 +1202,70 @@ export function ensureOpenAIGPT55Fallback(database: Record<string, Info>) {
   }
 
   const proFallback = openai.models["gpt-5.4-pro"] ?? openai.models["gpt-5.5"] ?? fallback
-  if (!proFallback || openai.models["gpt-5.5-pro"]) return
+  if (!proFallback) return
 
-  const pro: Model = {
-    ...proFallback,
-    id: ModelID.make("gpt-5.5-pro"),
-    name: "GPT-5.5 Pro",
-    api: {
-      ...proFallback.api,
-      id: "gpt-5.5-pro",
-      npm: "@ai-sdk/openai",
-    },
-    cost: {
-      input: 30,
-      output: 180,
-      cache: {
-        read: 0,
-        write: 0,
+  if (!openai.models["gpt-5.5-pro"]) {
+    const pro: Model = {
+      ...proFallback,
+      id: ModelID.make("gpt-5.5-pro"),
+      name: "GPT-5.5 Pro",
+      api: {
+        ...proFallback.api,
+        id: "gpt-5.5-pro",
+        npm: "@ai-sdk/openai",
       },
-    },
-    limit: {
-      context: 1_050_000,
-      input: 1_050_000,
-      output: 128_000,
-    },
-    capabilities: {
-      ...proFallback.capabilities,
-      reasoning: true,
-      attachment: true,
-      toolcall: true,
-      input: {
-        ...proFallback.capabilities.input,
-        text: true,
-        image: true,
+      cost: {
+        input: 30,
+        output: 180,
+        cache: {
+          read: 0,
+          write: 0,
+        },
       },
-      output: {
-        ...proFallback.capabilities.output,
-        text: true,
+      limit: {
+        context: 1_050_000,
+        input: 1_050_000,
+        output: 128_000,
       },
-    },
-    release_date: "2026-04-23",
-    variants: {},
+      capabilities: {
+        ...proFallback.capabilities,
+        reasoning: true,
+        attachment: true,
+        toolcall: true,
+        input: {
+          ...proFallback.capabilities.input,
+          text: true,
+          image: true,
+        },
+        output: {
+          ...proFallback.capabilities.output,
+          text: true,
+        },
+      },
+      release_date: "2026-04-23",
+      variants: {},
+    }
+    pro.variants = mapValues(ProviderTransform.variants(pro), (v) => v)
+    openai.models[pro.id] = pro
   }
-  pro.variants = mapValues(ProviderTransform.variants(pro), (v) => v)
-  openai.models[pro.id] = pro
+
+  for (const [id, name] of [
+    ["gpt-5.6-luna", "GPT-5.6 Luna"],
+    ["gpt-5.6-terra", "GPT-5.6 Terra"],
+    ["gpt-5.6-sol", "GPT-5.6 Sol"],
+  ]) {
+    if (openai.models[id]) continue
+    const model: Model = {
+      ...openai.models["gpt-5.5"],
+      id: ModelID.make(id),
+      name,
+      api: {
+        ...openai.models["gpt-5.5"].api,
+        id,
+      },
+    }
+    openai.models[model.id] = model
+  }
 }
 
 const layer: Layer.Layer<
@@ -1676,7 +1696,7 @@ const layer: Layer.Layer<
         const userChunkTimeout = options["chunkTimeout"]
         const chunkTimeout =
           typeof userChunkTimeout === "number"
-            ? userChunkTimeout  // user-set value (incl. 0 / negative to disable)
+            ? userChunkTimeout // user-set value (incl. 0 / negative to disable)
             : DEFAULT_CHUNK_TIMEOUT
         delete options["chunkTimeout"]
 
@@ -1944,7 +1964,17 @@ const layer: Layer.Layer<
       }
     })
 
-    return Service.of({ list, getProvider, getModel, getLanguage, closest, getSmallModel, getVisionModel, defaultModel, resolveModelRef })
+    return Service.of({
+      list,
+      getProvider,
+      getModel,
+      getLanguage,
+      closest,
+      getSmallModel,
+      getVisionModel,
+      defaultModel,
+      resolveModelRef,
+    })
   }),
 )
 
@@ -1999,4 +2029,3 @@ export const InitError = NamedError.create(
     providerID: ProviderID.zod,
   }),
 )
-

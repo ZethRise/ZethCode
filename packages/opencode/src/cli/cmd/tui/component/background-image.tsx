@@ -11,6 +11,7 @@ import { allocImageId, detectImageProtocol, kittyClear, kittyDisplay } from "../
 const HALF_BLOCK = "▀"
 const PROTOCOL = detectImageProtocol()
 const IMAGE_ALPHA = 0.45
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024
 
 type Pixels = {
   data: Uint8Array | Buffer
@@ -21,6 +22,7 @@ type Pixels = {
 async function decode(filePath: string): Promise<Pixels | undefined> {
   const file = Bun.file(filePath)
   if (!(await file.exists())) return undefined
+  if (file.size > MAX_IMAGE_BYTES) return undefined
   const buf = Buffer.from(await file.arrayBuffer())
   const ext = path.extname(filePath).toLowerCase()
   if (ext === ".png") {

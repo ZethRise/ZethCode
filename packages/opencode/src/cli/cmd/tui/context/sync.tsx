@@ -265,6 +265,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const pendingPartDeltas = new Map<string, { field: string; delta: string }[]>()
 
     const fullSyncedSessions = new Set<string>()
+    const syncingSessions = new Set<string>()
     let syncedWorkspace = project.workspace.current()
 
     event.subscribe((event) => {
@@ -424,6 +425,12 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               delete s.todo[sid]
               delete s.task[sid]
               delete s.actor[sid]
+              for (const [runID, run] of Object.entries(s.workflow)) {
+                if (run.sessionID !== sid) continue
+                delete s.workflow[runID]
+                delete s.workflowTranscript[runID]
+                delete s.workflowStructure[runID]
+              }
               const agents = s.message[sid]
               if (agents) {
                 for (const msgs of Object.values(agents)) {
@@ -845,8 +852,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           return last.time.completed ? "idle" : "working"
         },
         async sync(sessionID: string) {
-          if (fullSyncedSessions.has(sessionID)) return
-          const [session, messages, todo, diff, actors, task] = await Promise.all([
+          if (fullSyncedSessions.has(sessionID) || syncingSessions.has(sessionID)) return
+          syncingSessions.add(sessionID)
+          try {
+            const [session, messages, todo, diff, actors, task] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
             sdk.client.session.messages({ sessionID, limit: 0, agent_id: "*" }),
             sdk.client.session.todo({ sessionID }),
@@ -854,7 +863,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.session.actors({ sessionID }),
             sdk.client.session.task({ sessionID }),
           ])
-          setStore(
+            setStore(
             produce((draft) => {
               const match = Binary.search(draft.session, sessionID, (s) => s.id)
               if (match.found) draft.session[match.index] = session.data!
@@ -882,7 +891,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               }))
             }),
           )
-          fullSyncedSessions.add(sessionID)
+            fullSyncedSessions.add(sessionID)
+          } finally {
+            syncingSessions.delete(sessionID)
+          }
         },
       },
       bootstrap,

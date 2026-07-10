@@ -221,7 +221,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
       if (option) {
         evt.preventDefault()
         evt.stopPropagation()
-        if (option.onSelect) option.onSelect(dialog)
+        if (option.onSelect) void Promise.resolve(option.onSelect(dialog)).catch(console.error)
         props.onSelect?.(option)
       }
     }

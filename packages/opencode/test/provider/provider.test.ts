@@ -2506,6 +2506,15 @@ test("adds openai gpt-5.5 fallback when models.dev is stale", () => {
   expect(pro.capabilities.reasoning).toBe(true)
   expect(pro.capabilities.input.image).toBe(true)
   expect(Object.keys(pro.variants ?? {})).toEqual(["medium", "high", "xhigh"])
+
+  for (const [id, name] of [
+    ["gpt-5.6-luna", "GPT-5.6 Luna"],
+    ["gpt-5.6-terra", "GPT-5.6 Terra"],
+    ["gpt-5.6-sol", "GPT-5.6 Sol"],
+  ]) {
+    expect(database[ProviderID.openai].models[id].name).toBe(name)
+    expect(database[ProviderID.openai].models[id].api.id).toBe(id)
+  }
 })
 
 test("model variants are generated for reasoning models", async () => {
@@ -3073,4 +3082,3 @@ test("plugin config enabled and disabled providers are honored", async () => {
     },
   })
 })
-

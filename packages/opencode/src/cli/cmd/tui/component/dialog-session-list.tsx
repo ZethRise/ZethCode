@@ -37,8 +37,13 @@ export function DialogSessionList() {
 
   const [searchResults, { refetch }] = createResource(search, async (query) => {
     if (!query) return undefined
-    const result = await sdk.client.session.list({ search: query, limit: 30 })
-    return result.data ?? []
+    try {
+      const result = await sdk.client.session.list({ search: query, limit: 30 })
+      return result.data ?? []
+    } catch (error) {
+      toast.show({ message: error instanceof Error ? error.message : "Failed to search sessions", variant: "error" })
+      return []
+    }
   })
 
   const currentSessionID = createMemo(() => (route.data.type === "session" ? route.data.sessionID : undefined))

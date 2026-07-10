@@ -266,13 +266,18 @@ export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) =
       status: result.response?.status,
     })
 
-    await project.workspace.sync()
-    log.info("workspace create synced", {
-      type,
-      workspaceID: workspace.id,
-    })
-    await props.onSelect(workspace.id)
-    setCreating(undefined)
+    try {
+      await project.workspace.sync()
+      log.info("workspace create synced", {
+        type,
+        workspaceID: workspace.id,
+      })
+      await props.onSelect(workspace.id)
+    } catch (error) {
+      toast.show({ message: error instanceof Error ? error.message : "Failed to open workspace", variant: "error" })
+    } finally {
+      setCreating(undefined)
+    }
   }
 
   return (

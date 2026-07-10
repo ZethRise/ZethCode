@@ -125,7 +125,10 @@ export function win32InstallCtrlCGuard() {
       stdin.setRawMode = original
     }
 
-    k32!.symbols.SetConsoleMode(handle, initial)
+    if (k32!.symbols.GetConsoleMode(handle, ptr(buf)) !== 0) {
+      const mode = buf[0]!
+      k32!.symbols.SetConsoleMode(handle, (mode & ~ENABLE_PROCESSED_INPUT) | (initial & ENABLE_PROCESSED_INPUT))
+    }
     unhook = undefined
   }
 

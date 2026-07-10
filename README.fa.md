@@ -20,16 +20,10 @@ MiMo Code خودش فورکی از [OpenCode](https://github.com/anomalyco/openc
 
 ---
 
-## تازه‌های v1.0.5
+## تازه‌های v1.0.6
 
-- استریم TUI پایدارتر شد: deltaهای متنی خارج از ترتیب بافر می‌شوند تا پیام‌های دستیار وسط استریم ناپدید نشوند.
-- نمایش فارسی/RTL در پرامپت و پیام‌ها بهتر شد، مخصوصا وقتی متن فارسی و انگلیسی کنار هم هستند و باید داخل کادر wrap شوند.
-- سازگاری AgentRouter بهتر شد: رویدادهای SSE مربوط به billing summary قبل از رسیدن به parser استریم مدل حذف می‌شوند.
-- دستور `/context` حالا اسکرول دارد و breakdown توکن‌های user/assistant و تعداد پیام‌های قابل مشاهده را نشان می‌دهد.
-- دستور تازه `/search` برای رفتن سریع به متن matching داخل نشست فعلی اضافه شد.
-- skill loading حالا `disable-model-invocation: true` را رعایت می‌کند و skillهای manual-only را از لیست قابل مشاهده مدل پنهان نگه می‌دارد.
-- paste در ترمینال ویندوز با `ENABLE_VIRTUAL_TERMINAL_INPUT` قابل اعتمادتر شد و Ctrl+V / bracketed paste بهتر کار می‌کند.
-- سایدبار حالا status زنده agent و آخرین فعالیت tool را نشان می‌دهد.
+- مدل‌های GPT-5.6 Luna، Terra و Sol برای کاربران OpenAI و ChatGPT OAuth اضافه شدند.
+- پایداری ارسال TUI، نگهداری state نشست، بازیابی خطای worktree، گزارش Git و پاک‌سازی کنسول ویندوز بهتر شد.
 
 ---
 
@@ -56,11 +50,11 @@ curl -fsSL https://raw.githubusercontent.com/ZethRise/ZethCode/master/scripts/in
 
 یا فایل اجرایی مستقل ویندوز را از [صفحه انتشارها](https://github.com/ZethRise/ZethCode/releases/latest) دانلود کنید:
 
-| بیلد | مناسب برای |
-|------|------------|
-| `zethcode-windows-x64.exe` | بیشتر کامپیوترهای مدرن Windows با پردازنده Intel/AMD |
+| بیلد                                | مناسب برای                                                 |
+| ----------------------------------- | ---------------------------------------------------------- |
+| `zethcode-windows-x64.exe`          | بیشتر کامپیوترهای مدرن Windows با پردازنده Intel/AMD       |
 | `zethcode-windows-x64-baseline.exe` | پردازنده‌های x64 قدیمی‌تر بدون پشتیبانی از دستورهای جدیدتر |
-| `zethcode-windows-arm64.exe` | دستگاه‌های Windows on ARM |
+| `zethcode-windows-arm64.exe`        | دستگاه‌های Windows on ARM                                  |
 
 آن را داخل ترمینال و در پوشه پروژه اجرا کنید:
 
@@ -72,10 +66,10 @@ curl -fsSL https://raw.githubusercontent.com/ZethRise/ZethCode/master/scripts/in
 
 فایل `.deb` یا `.AppImage` را از [صفحه انتشارها](https://github.com/ZethRise/ZethCode/releases/latest) دانلود کنید:
 
-| بیلد | مناسب برای |
-|------|------------|
-| `zethcode-linux-x64.deb` / `.AppImage` | بیشتر کامپیوترهای مدرن Linux با پردازنده Intel/AMD |
-| `zethcode-linux-arm64.deb` / `.AppImage` | دستگاه‌ها و سرورهای Linux ARM |
+| بیلد                                     | مناسب برای                                         |
+| ---------------------------------------- | -------------------------------------------------- |
+| `zethcode-linux-x64.deb` / `.AppImage`   | بیشتر کامپیوترهای مدرن Linux با پردازنده Intel/AMD |
+| `zethcode-linux-arm64.deb` / `.AppImage` | دستگاه‌ها و سرورهای Linux ARM                      |
 
 نصب فایل `.deb`:
 
@@ -110,10 +104,10 @@ Zeth Code داخل ترمینال اجرا می‌شود و برای نشست‌
 
 ### چند عامل تخصصی
 
-| عامل | توضیح |
-|------|-------|
-| `build` | عامل پیش‌فرض توسعه با امکان اجرای ابزارها |
-| `plan` | حالت فقط‌خواندنی برای بررسی کد و طراحی راه‌حل |
+| عامل      | توضیح                                                           |
+| --------- | --------------------------------------------------------------- |
+| `build`   | عامل پیش‌فرض توسعه با امکان اجرای ابزارها                       |
+| `plan`    | حالت فقط‌خواندنی برای بررسی کد و طراحی راه‌حل                   |
 | `compose` | حالت ارکستریشن برای جریان‌های کاری ساختاریافته و مبتنی بر skill |
 
 ### حافظه پایدار

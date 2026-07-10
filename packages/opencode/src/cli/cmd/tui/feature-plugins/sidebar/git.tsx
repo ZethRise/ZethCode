@@ -11,21 +11,23 @@ type GitFile = {
 
 async function git(args: string[], cwd: string): Promise<string> {
   const proc = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" })
-  const text = await new Response(proc.stdout).text()
-  await proc.exited
+  const [text, error, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited])
+  if (code !== 0) throw new Error(error.trim() || `git ${args[0]} failed with exit code ${code}`)
   return text.trim()
 }
 
 async function getStatus(cwd: string): Promise<GitFile[]> {
-  const raw = await git(["status", "--porcelain", "-uall"], cwd)
+  const raw = await git(["status", "--porcelain=v1", "-z", "-uall"], cwd)
   if (!raw) return []
   return raw
-    .split("\n")
+    .split("\0")
     .filter(Boolean)
-    .map((line) => ({
-      code: line.slice(0, 2),
-      file: line.slice(3),
-    }))
+    .reduce<GitFile[]>((result, line, index, entries) => {
+      const previous = entries[index - 1]
+      if (previous && (previous.slice(0, 2).includes("R") || previous.slice(0, 2).includes("C"))) return result
+      result.push({ code: line.slice(0, 2), file: line.slice(3) })
+      return result
+    }, [])
 }
 
 async function stageAll(cwd: string) {
