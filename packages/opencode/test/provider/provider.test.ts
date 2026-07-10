@@ -2517,6 +2517,49 @@ test("adds openai gpt-5.5 fallback when models.dev is stale", () => {
   }
 })
 
+test("does not add gpt-5.6 aliases when only a pro fallback exists", () => {
+  const database = {
+    [ProviderID.openai]: Provider.fromModelsDevProvider({
+      id: "openai",
+      name: "OpenAI",
+      env: ["OPENAI_API_KEY"],
+      api: "https://api.openai.com/v1",
+      models: {
+        "gpt-5.4-pro": {
+          id: "gpt-5.4-pro",
+          name: "GPT-5.4 Pro",
+          family: "gpt",
+          reasoning: true,
+          tool_call: true,
+          cost: {
+            input: 30,
+            output: 180,
+          },
+          limit: {
+            context: 1_050_000,
+            input: 1_050_000,
+            output: 128_000,
+          },
+          modalities: {
+            input: ["text", "image"],
+            output: ["text"],
+          },
+          provider: {
+            npm: "@ai-sdk/openai",
+            api: "https://api.openai.com/v1/responses",
+          },
+        },
+      },
+    } as unknown as ModelsDev.Provider),
+  }
+
+  expect(() => Provider.ensureOpenAIGPT55Fallback(database)).not.toThrow()
+  expect(database[ProviderID.openai].models["gpt-5.5-pro"]).toBeDefined()
+  expect(database[ProviderID.openai].models["gpt-5.6-luna"]).toBeUndefined()
+  expect(database[ProviderID.openai].models["gpt-5.6-terra"]).toBeUndefined()
+  expect(database[ProviderID.openai].models["gpt-5.6-sol"]).toBeUndefined()
+})
+
 test("model variants are generated for reasoning models", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {

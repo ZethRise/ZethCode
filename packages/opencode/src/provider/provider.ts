@@ -1249,6 +1249,9 @@ export function ensureOpenAIGPT55Fallback(database: Record<string, Info>) {
     openai.models[pro.id] = pro
   }
 
+  const aliasFallback = openai.models["gpt-5.5"]
+  if (!aliasFallback) return
+
   for (const [id, name] of [
     ["gpt-5.6-luna", "GPT-5.6 Luna"],
     ["gpt-5.6-terra", "GPT-5.6 Terra"],
@@ -1256,11 +1259,11 @@ export function ensureOpenAIGPT55Fallback(database: Record<string, Info>) {
   ]) {
     if (openai.models[id]) continue
     const model: Model = {
-      ...openai.models["gpt-5.5"],
+      ...aliasFallback,
       id: ModelID.make(id),
       name,
       api: {
-        ...openai.models["gpt-5.5"].api,
+        ...aliasFallback.api,
         id,
       },
     }
