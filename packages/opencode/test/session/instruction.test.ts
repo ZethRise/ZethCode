@@ -220,6 +220,28 @@ describe("Instruction.resolve", () => {
 })
 
 describe("Instruction.system", () => {
+  test("loads project ZETH.md", async () => {
+    await using projectTmp = await tmpdir({
+      git: true,
+      init: async (dir) => {
+        await Bun.write(path.join(dir, "ZETH.md"), "# Zeth Instructions")
+      },
+    })
+
+    await Instance.provide({
+      directory: projectTmp.path,
+      fn: () =>
+        run(
+          Instruction.Service.use((svc) =>
+            Effect.gen(function* () {
+              const paths = yield* svc.systemPaths()
+              expect(paths.has(path.join(projectTmp.path, "ZETH.md"))).toBe(true)
+            }),
+          ),
+        ),
+    })
+  })
+
   test("loads both project and global AGENTS.md when both exist", async () => {
     const originalConfigDir = process.env["ZETHCODE_CONFIG_DIR"]
     delete process.env["ZETHCODE_CONFIG_DIR"]

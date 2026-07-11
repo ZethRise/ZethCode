@@ -300,9 +300,14 @@ export function Session() {
     if (!info) return ""
     return path.join(info.directory, ".zethcode", "MEMORY.md")
   })
-  const [projectMemoryExists] = createResource(projectMemoryPath, async (file) => {
+  const [projectMemoryExists, { refetch: refreshProjectMemory }] = createResource(projectMemoryPath, async (file) => {
     if (!file) return false
     return Bun.file(file).exists()
+  })
+  event.on("session.status", (evt) => {
+    if (evt.properties.sessionID !== route.sessionID) return
+    if (evt.properties.status.type !== "idle") return
+    void refreshProjectMemory()
   })
   const memoryMcpStatus = createMemo(() => sync.data.mcp["codebase-memory"]?.status ?? "missing")
   const lastDream = createMemo(() => {
@@ -2343,7 +2348,7 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
             <Match when={Flag.ZETHCODE_EXPERIMENTAL_MARKDOWN}>
               <markdown
                 syntaxStyle={syntax()}
-                streaming={false}
+                streaming={true}
                 content={content()}
                 conceal={ctx.conceal()}
                 fg={theme.markdownText}
@@ -2359,7 +2364,7 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
                 content={content()}
                 conceal={ctx.conceal()}
                 fg={theme.text}
-                streaming={false}
+                streaming={true}
                 wrapMode="word"
                 width="100%"
               />

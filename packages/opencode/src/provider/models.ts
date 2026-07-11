@@ -108,6 +108,33 @@ export const Provider = z.object({
 export type Provider = z.infer<typeof Provider>
 
 const localProviders: Record<string, Provider> = {
+  "9router": {
+    id: "9router",
+    name: "9Router",
+    env: ["NINEROUTER_API_KEY", "NINE_ROUTER_API_KEY"],
+    api: "http://127.0.0.1:20128/v1",
+    npm: "@ai-sdk/openai-compatible",
+    models: {
+      "cc/claude-opus-4-7": {
+        id: "cc/claude-opus-4-7",
+        name: "Claude Opus 4.7 (9Router)",
+        family: "claude",
+        release_date: "",
+        attachment: true,
+        reasoning: true,
+        temperature: true,
+        tool_call: true,
+        limit: {
+          context: 200_000,
+          output: 32_000,
+        },
+        modalities: {
+          input: ["text", "image", "pdf"],
+          output: ["text"],
+        },
+      },
+    },
+  },
   agentrouter: {
     id: "agentrouter",
     name: "AgentRouter",

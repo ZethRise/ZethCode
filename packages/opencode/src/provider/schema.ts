@@ -20,6 +20,7 @@ export const ProviderID = providerIdSchema.pipe(
     amazonBedrock: schema.make("amazon-bedrock"),
     azure: schema.make("azure"),
     openrouter: schema.make("openrouter"),
+    nineRouter: schema.make("9router"),
     mistral: schema.make("mistral"),
     gitlab: schema.make("gitlab"),
   })),

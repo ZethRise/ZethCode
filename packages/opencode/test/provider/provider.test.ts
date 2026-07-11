@@ -142,6 +142,34 @@ test("agentrouter provider loads from fallback token env", async () => {
   })
 })
 
+test("9router provider loads from environment", async () => {
+  await using tmp = await tmpdir({
+    init: async (dir) => {
+      await Bun.write(
+        path.join(dir, "zethcode.json"),
+        JSON.stringify({
+          $schema: "https://opencode.ai/config.json",
+          enabled_providers: ["9router"],
+        }),
+      )
+    },
+  })
+  await Instance.provide({
+    directory: tmp.path,
+    init: async () => {
+      set("NINEROUTER_API_KEY", "test-9router-key")
+    },
+    fn: async () => {
+      const providers = await list()
+      const provider = providers[ProviderID.nineRouter]
+      expect(provider).toBeDefined()
+      expect(provider.options.baseURL).toBe("http://127.0.0.1:20128/v1")
+      expect(provider.options.apiKey).toBe("test-9router-key")
+      expect(provider.models["cc/claude-opus-4-7"].api.npm).toBe("@ai-sdk/openai-compatible")
+    },
+  })
+})
+
 test("agentrouter provider loads from config apiKey", async () => {
   await using tmp = await tmpdir({
     init: async (dir) => {

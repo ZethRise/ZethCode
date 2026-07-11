@@ -480,6 +480,66 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
           },
         },
       }),
+    "9router": Effect.fnUntraced(function* (input: Info) {
+      const env = yield* dep.env()
+      const auth = yield* dep.auth(input.id)
+      const apiKey = iife(() => {
+        if (auth?.type === "api") return auth.key
+        if (typeof input.options.apiKey === "string") return input.options.apiKey
+        return env["NINEROUTER_API_KEY"] ?? env["NINE_ROUTER_API_KEY"]
+      })
+      return {
+        autoload: Boolean(apiKey),
+        options: {
+          baseURL: input.options.baseURL ?? "http://127.0.0.1:20128/v1",
+          ...(apiKey ? { apiKey } : {}),
+        },
+        async discoverModels(): Promise<Record<string, Model>> {
+          const baseURL = input.options.baseURL ?? "http://127.0.0.1:20128/v1"
+          const result = await fetch(`${baseURL.replace(/\/$/, "")}/models`, {
+            headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+            signal: AbortSignal.timeout(5000),
+          })
+          if (!result.ok) return {}
+
+          const body = (await result.json()) as { data?: { id?: unknown; owned_by?: unknown }[] }
+          return Object.fromEntries(
+            (body.data ?? []).flatMap((item) => {
+              if (typeof item.id !== "string" || item.id === "") return []
+              const combo = item.owned_by === "combo"
+              return [
+                [
+                  item.id,
+                  {
+                    id: ModelID.make(item.id),
+                    providerID: ProviderID.make("9router"),
+                    name: combo ? `${item.id} (Auto)` : item.id,
+                    family: "",
+                    release_date: "",
+                    api: { id: item.id, url: baseURL, npm: "@ai-sdk/openai-compatible" },
+                    status: "active",
+                    headers: {},
+                    options: {},
+                    cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+                    limit: { context: 200_000, output: 32_000 },
+                    capabilities: {
+                      temperature: true,
+                      reasoning: true,
+                      attachment: true,
+                      toolcall: true,
+                      interleaved: false,
+                      input: { text: true, audio: false, image: true, video: false, pdf: true },
+                      output: { text: true, audio: false, image: false, video: false, pdf: false },
+                    },
+                    variants: {},
+                  } satisfies Model,
+                ],
+              ]
+            }),
+          )
+        },
+      }
+    }),
     agentrouter: Effect.fnUntraced(function* (input: Info) {
       const env = yield* dep.env()
       const auth = yield* dep.auth(input.id)
@@ -496,16 +556,68 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         },
       }
     }),
-    nvidia: () =>
-      Effect.succeed({
-        autoload: false,
+    nvidia: Effect.fnUntraced(function* (input: Info) {
+      const auth = yield* dep.auth(input.id)
+      const apiKey = iife(() => {
+        if (auth?.type === "api") return auth.key
+        if (typeof input.options.apiKey === "string") return input.options.apiKey
+        return input.key
+      })
+      const baseURL = typeof input.options.baseURL === "string" ? input.options.baseURL : "https://integrate.api.nvidia.com/v1"
+      return {
+        autoload: Boolean(apiKey),
         options: {
+          ...(apiKey ? { apiKey } : {}),
           headers: {
             "HTTP-Referer": "https://mimo.xiaomi.com/coder/",
             "X-Title": "zethcode",
           },
         },
-      }),
+        async discoverModels(): Promise<Record<string, Model>> {
+          if (!apiKey) return {}
+          const result = await fetch(`${baseURL.replace(/\/$/, "")}/models`, {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(5000),
+          })
+          if (!result.ok) return {}
+
+          const body = (await result.json()) as { data?: { id?: unknown }[] }
+          return Object.fromEntries(
+            (body.data ?? []).flatMap((item) => {
+              if (typeof item.id !== "string" || item.id === "") return []
+              return [
+                [
+                  item.id,
+                  {
+                    id: ModelID.make(item.id),
+                    providerID: ProviderID.make("nvidia"),
+                    name: item.id,
+                    family: "",
+                    release_date: "",
+                    api: { id: item.id, url: baseURL, npm: "@ai-sdk/openai-compatible" },
+                    status: "active",
+                    headers: {},
+                    options: {},
+                    cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+                    limit: { context: 128_000, output: 32_000 },
+                    capabilities: {
+                      temperature: true,
+                      reasoning: true,
+                      attachment: false,
+                      toolcall: true,
+                      interleaved: false,
+                      input: { text: true, audio: false, image: false, video: false, pdf: false },
+                      output: { text: true, audio: false, image: false, video: false, pdf: false },
+                    },
+                    variants: {},
+                  } satisfies Model,
+                ],
+              ]
+            }),
+          )
+        },
+      }
+    }),
     vercel: () =>
       Effect.succeed({
         autoload: false,
@@ -1533,18 +1645,19 @@ const layer: Layer.Layer<
           mergeProvider(providerID, partial)
         }
 
-        const gitlab = ProviderID.make("gitlab")
-        if (discoveryLoaders[gitlab] && providers[gitlab] && isProviderAllowed(gitlab)) {
+        for (const [id, discoverModels] of Object.entries(discoveryLoaders)) {
+          const providerID = ProviderID.make(id)
+          if (!providers[providerID] || !isProviderAllowed(providerID)) continue
           yield* Effect.promise(async () => {
             try {
-              const discovered = await discoveryLoaders[gitlab]()
+              const discovered = await discoverModels()
               for (const [modelID, model] of Object.entries(discovered)) {
-                if (!providers[gitlab].models[modelID]) {
-                  providers[gitlab].models[modelID] = model
+                if (!providers[providerID].models[modelID]) {
+                  providers[providerID].models[modelID] = model
                 }
               }
             } catch (e) {
-              log.warn("state discovery error", { id: "gitlab", error: e })
+              log.warn("state discovery error", { id: providerID, error: e })
             }
           })
         }
