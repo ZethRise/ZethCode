@@ -5,9 +5,22 @@ import { useSDK } from "../context/sdk"
 import { useSync } from "@tui/context/sync"
 import { useRoute } from "@tui/context/route"
 import { useToast } from "../ui/toast"
+import { errorMessage } from "@/util/error"
 import path from "path"
 
 const CREATE_SENTINEL = "__create_worktree__"
+
+type Worktree = { directory: string; branch: string; dirty: boolean }
+
+async function inspect(directory: string): Promise<Worktree> {
+  const branch = Bun.spawn(["git", "-C", directory, "branch", "--show-current"], { stdout: "pipe" })
+  const status = Bun.spawn(["git", "-C", directory, "status", "--porcelain"], { stdout: "pipe" })
+  return {
+    directory,
+    branch: (await new Response(branch.stdout).text()).trim() || "detached",
+    dirty: (await new Response(status.stdout).text()).trim().length > 0,
+  }
+}
 
 export function DialogWorktree() {
   const dialog = useDialog()
@@ -15,13 +28,13 @@ export function DialogWorktree() {
   const sync = useSync()
   const route = useRoute()
   const toast = useToast()
-  const [worktrees, setWorktrees] = createSignal<string[]>()
+  const [worktrees, setWorktrees] = createSignal<Worktree[]>()
   const [busy, setBusy] = createSignal<string>()
 
   onMount(async () => {
     dialog.setSize("medium")
     const result = await sdk.client.worktree.list().catch(() => undefined)
-    setWorktrees(result?.data ?? [])
+    setWorktrees(await Promise.all((result?.data ?? []).map(inspect)))
   })
 
   const options = createMemo(() => {
@@ -35,10 +48,10 @@ export function DialogWorktree() {
       return [{ title: "Loading worktrees...", value: "__loading__" }]
     }
 
-    const items = list.map((dir) => ({
-      title: path.basename(dir),
-      value: dir,
-      description: dir,
+    const items = list.map((worktree) => ({
+      title: `${path.basename(worktree.directory)} (${worktree.branch})${worktree.dirty ? " *" : ""}`,
+      value: worktree.directory,
+      description: worktree.directory,
     }))
 
     return [
@@ -53,6 +66,7 @@ export function DialogWorktree() {
 
   async function switchTo(directory: string) {
     setBusy("Switching to worktree...")
+    const previous = sdk.directory
     try {
       await sdk.client.instance.dispose()
       sdk.switchDirectory(directory)
@@ -61,6 +75,10 @@ export function DialogWorktree() {
       dialog.clear()
       toast.show({ message: `Switched to ${path.basename(directory)}`, variant: "success" })
     } catch (error) {
+      if (previous) {
+        sdk.switchDirectory(previous)
+        await sync.bootstrap().catch(() => {})
+      }
       setBusy(undefined)
       toast.show({ message: error instanceof Error ? error.message : "Failed to switch worktree", variant: "error" })
     }
@@ -68,9 +86,9 @@ export function DialogWorktree() {
 
   async function create() {
     setBusy("Creating worktree...")
-    const result = await sdk.client.worktree.create().catch(() => undefined)
+    const result = await sdk.client.worktree.create().catch((error) => ({ data: undefined, error }))
     if (!result?.data) {
-      toast.show({ message: "Failed to create worktree", variant: "error" })
+      toast.show({ message: result.error ? errorMessage(result.error) : "Failed to create worktree", variant: "error" })
       setBusy(undefined)
       return
     }

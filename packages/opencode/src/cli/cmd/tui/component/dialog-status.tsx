@@ -1,5 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import { fileURLToPath } from "bun"
+import path from "path"
 import { useTheme } from "../context/theme"
 import { useDialog } from "@tui/ui/dialog"
 import { useSync } from "@tui/context/sync"
@@ -19,13 +20,12 @@ export function DialogStatus() {
     const result = list.map((item) => {
       const value = typeof item === "string" ? item : item[0]
       if (value.startsWith("file://")) {
-        const path = fileURLToPath(value)
-        const parts = path.split("/")
-        const filename = parts.pop() || path
+        const file = fileURLToPath(value)
+        const filename = path.basename(file)
         if (!filename.includes(".")) return { name: filename }
-        const basename = filename.split(".")[0]
+        const basename = path.basename(filename, path.extname(filename))
         if (basename === "index") {
-          const dirname = parts.pop()
+          const dirname = path.basename(path.dirname(file))
           const name = dirname || basename
           return { name }
         }

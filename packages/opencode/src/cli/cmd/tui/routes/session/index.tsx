@@ -37,6 +37,7 @@ import type {
 } from "@zethrise/sdk/v2"
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util"
+import { Label } from "@/cli/cmd/tui/util"
 import type { Tool } from "@/tool"
 import type { ReadTool } from "@/tool/read"
 import type { WriteTool } from "@/tool/write"
@@ -3130,6 +3131,7 @@ function BlockTool(props: {
 
 const TOOL_COLLAPSE_MAX_LINES = 3
 const TOOL_COLLAPSE_MAX_LINE_LENGTH = 120
+const TOOL_RENDER_MAX_LINES = 1_000
 
 function displayLines(content: string) {
   if (!content) return []
@@ -3435,7 +3437,7 @@ function Task(props: ToolProps<typeof ActorTool>) {
 
     const action = inputAction()
     const status = actorStatus()
-    const agent = Locale.titlecase(input().subagent_type ?? actorEntry()?.agent ?? "General")
+    const agent = Locale.titlecase(Label.label(input().subagent_type ?? actorEntry()?.agent ?? "General"))
 
     let header: string
     if (action === "cancel") {
@@ -3604,6 +3606,7 @@ function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
             const open = createMemo(() => expanded().includes(file.filePath))
             const count = createMemo(() => file.additions + file.deletions)
             const collapsed = createMemo(() => count() > TOOL_COLLAPSE_MAX_LINES || hasLongDisplayLine(file.patch))
+            const renderable = createMemo(() => count() <= TOOL_RENDER_MAX_LINES)
 
             return (
               <BlockTool
@@ -3620,6 +3623,14 @@ function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
                   }
                 >
                   <Show
+                    when={renderable()}
+                    fallback={
+                      <text fg={theme.textMuted}>
+                        Diff has {count()} changes. Open file in editor; rendering it would freeze TUI.
+                      </text>
+                    }
+                  >
+                  <Show
                     when={!collapsed() || open()}
                     fallback={
                       <text fg={theme.textMuted}>
@@ -3631,6 +3642,7 @@ function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
                     <Show when={collapsed()}>
                       <text fg={theme.textMuted}>Click to collapse</text>
                     </Show>
+                  </Show>
                   </Show>
                   <Diagnostics diagnostics={props.metadata.diagnostics} filePath={file.movePath ?? file.filePath} />
                 </Show>

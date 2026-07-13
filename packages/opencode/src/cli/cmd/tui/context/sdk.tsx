@@ -42,6 +42,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     let queue: GlobalEvent[] = []
     let timer: Timer | undefined
     let last = 0
+    let lastEvent = Date.now()
     const retryDelay = 1000
     const maxRetryDelay = 30000
 
@@ -60,6 +61,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     }
 
     const handleEvent = (event: GlobalEvent) => {
+      lastEvent = Date.now()
       queue.push(event)
       const elapsed = Date.now() - last
 
@@ -124,6 +126,11 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
         }
       } else {
         startSSE()
+        const watchdog = setInterval(() => {
+          if (Date.now() - lastEvent < 30_000) return
+          startSSE()
+        }, 10_000)
+        onCleanup(() => clearInterval(watchdog))
       }
     })
 

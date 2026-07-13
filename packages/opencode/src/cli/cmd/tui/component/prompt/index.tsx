@@ -39,6 +39,7 @@ import type { AssistantMessage, FilePart, UserMessage } from "@zethrise/sdk/v2"
 import { TuiEvent } from "../../event"
 import { iife } from "@/util/iife"
 import { Locale } from "@/util"
+import { Label } from "@/cli/cmd/tui/util"
 import { formatDuration } from "@/util/format"
 import { createColors, createFrames } from "../../ui/spinner.ts"
 import { useDialog } from "@tui/ui/dialog"
@@ -432,6 +433,15 @@ export function Prompt(props: PromptProps) {
     return messages.findLast((m): m is UserMessage => m.role === "user")
   })
 
+  const lastModelForAgent = createMemo(() => {
+    if (!props.sessionID) return undefined
+    const agent = local.agent.current()?.name
+    if (!agent) return undefined
+    return sync.data.message[props.sessionID]?.["main"]?.findLast(
+      (m): m is UserMessage => m.role === "user" && m.agent === agent && !!m.model,
+    )?.model
+  })
+
   // After the agent finishes a turn, predict the user's likely next prompt and
   // show it as ghost text in the empty input (accept with Tab). Only fires on
   // an idle transition while the input is empty so it never clobbers typing.
@@ -482,6 +492,13 @@ export function Prompt(props: PromptProps) {
     if (!ghost()) return
     command.keybinds(false)
     onCleanup(() => command.keybinds(true))
+  })
+
+  createEffect(() => {
+    const model = lastModelForAgent()
+    if (!model || args.agent) return
+    local.model.set(model)
+    local.model.variant.set(model.variant)
   })
 
   const usage = createMemo(() => {
@@ -1773,7 +1790,7 @@ export function Prompt(props: PromptProps) {
                   {(agent) => (
                     <>
                       <text fg={fadeColor(highlight(), agentMetaAlpha())}>
-                        {store.mode === "shell" ? "Shell" : Locale.titlecase(agent().name)}
+                        {store.mode === "shell" ? "Shell" : Locale.titlecase(Label.label(agent().name))}
                       </text>
                       <Show when={store.mode === "normal"}>
                         <box flexDirection="row" gap={1}>
