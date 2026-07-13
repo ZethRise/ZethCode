@@ -1,11 +1,13 @@
 import { createMemo, createSignal, onMount } from "solid-js"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect } from "@tui/ui/dialog-select"
+import { DialogConfirm } from "@tui/ui/dialog-confirm"
 import { useSDK } from "../context/sdk"
 import { useSync } from "@tui/context/sync"
 import { useRoute } from "@tui/context/route"
 import { useToast } from "../ui/toast"
 import { errorMessage } from "@/util/error"
+import { Keybind } from "@/util"
 import path from "path"
 
 const CREATE_SENTINEL = "__create_worktree__"
@@ -20,6 +22,17 @@ async function inspect(directory: string): Promise<Worktree> {
     branch: (await new Response(branch.stdout).text()).trim() || "detached",
     dirty: (await new Response(status.stdout).text()).trim().length > 0,
   }
+}
+
+async function apply(directory: string, target: string) {
+  const diff = Bun.spawn(["git", "-C", directory, "diff", "--binary", "HEAD"], { stdout: "pipe" })
+  const patch = await new Response(diff.stdout).text()
+  if (!patch) return false
+  const proc = Bun.spawn(["git", "-C", target, "apply", "--3way", "--index"], { stdin: "pipe", stderr: "pipe" })
+  proc.stdin?.write(patch)
+  proc.stdin?.end()
+  if ((await proc.exited) === 0) return true
+  throw new Error((await new Response(proc.stderr).text()).trim() || "Failed to apply worktree changes")
 }
 
 export function DialogWorktree() {
@@ -95,6 +108,30 @@ export function DialogWorktree() {
     await switchTo(result.data.directory)
   }
 
+  async function applyChanges(directory: string) {
+    const target = sdk.directory
+    if (!target || target === directory) return
+    const confirmed = await DialogConfirm.show(
+      dialog,
+      "Apply worktree changes",
+      `Apply tracked changes from ${path.basename(directory)} to ${path.basename(target)}? Git will stop on conflicts.`,
+    )
+    if (!confirmed) return
+    setBusy("Applying worktree changes...")
+    try {
+      if (!await apply(directory, target)) {
+        toast.show({ message: "Worktree has no tracked changes", variant: "info" })
+        return
+      }
+      toast.show({ message: `Applied changes from ${path.basename(directory)}`, variant: "success" })
+      setWorktrees(await Promise.all((worktrees() ?? []).map((item) => inspect(item.directory))))
+    } catch (error) {
+      toast.show({ message: errorMessage(error), variant: "error" })
+    } finally {
+      setBusy(undefined)
+    }
+  }
+
   return (
     <DialogSelect
       title="Worktrees"
@@ -108,6 +145,15 @@ export function DialogWorktree() {
         }
         void switchTo(option.value)
       }}
+      keybind={[
+        {
+          keybind: Keybind.parse("ctrl+m")[0],
+          title: "apply changes",
+          onTrigger: (option) => {
+            if (option.value !== CREATE_SENTINEL) void applyChanges(option.value)
+          },
+        },
+      ]}
     />
   )
 }
