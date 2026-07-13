@@ -128,6 +128,8 @@ function Section(props: {
 function View(props: { api: TuiPluginApi }) {
   const theme = () => props.api.theme.current
   const [files, setFiles] = createSignal<GitFile[]>([])
+  const [stagedSummary, setStagedSummary] = createSignal("")
+  const [unstagedSummary, setUnstagedSummary] = createSignal("")
   const [message, setMessage] = createSignal("")
   const [busy, setBusy] = createSignal(false)
   const [open, setOpen] = createSignal(true)
@@ -141,8 +143,15 @@ function View(props: { api: TuiPluginApi }) {
   const refresh = async () => {
     if (!mounted) return
     try {
-      const result = await getStatus(cwd())
-      if (mounted) setFiles(result)
+      const [result, staged, unstaged] = await Promise.all([
+        getStatus(cwd()),
+        git(["diff", "--cached", "--stat"], cwd()),
+        git(["diff", "--stat"], cwd()),
+      ])
+      if (!mounted) return
+      setFiles(result)
+      setStagedSummary(staged)
+      setUnstagedSummary(unstaged)
     } catch {
       // not a git repo or git not available
     }
@@ -235,6 +244,9 @@ function View(props: { api: TuiPluginApi }) {
             setOpen={setStagedOpen}
             theme={theme()}
           />
+          <Show when={stagedSummary()}>
+            <text fg={theme().textMuted}>{stagedSummary()}</text>
+          </Show>
           <Section
             title="Changes"
             count={unstaged().length}
@@ -243,6 +255,9 @@ function View(props: { api: TuiPluginApi }) {
             setOpen={setUnstagedOpen}
             theme={theme()}
           />
+          <Show when={unstagedSummary()}>
+            <text fg={theme().textMuted}>{unstagedSummary()}</text>
+          </Show>
 
           <Show when={files().length === 0}>
             <box paddingLeft={1}>

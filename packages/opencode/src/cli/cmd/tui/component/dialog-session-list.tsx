@@ -38,7 +38,7 @@ export function DialogSessionList() {
   const [searchResults, { refetch }] = createResource(search, async (query) => {
     if (!query) return undefined
     try {
-      const result = await sdk.client.session.list({ search: query, limit: 30 })
+      const result = await sdk.client.session.list({ search: query, limit: 100 })
       return result.data ?? []
     } catch (error) {
       toast.show({ message: error instanceof Error ? error.message : "Failed to search sessions", variant: "error" })
@@ -119,13 +119,8 @@ export function DialogSessionList() {
 
   const options = createMemo(() => {
     const today = new Date().toDateString()
-    const current = currentSessionID()
-    // Top-level sessions, plus the CURRENT session's children (e.g. Orchestrator
-    // child sessions) so the user can discover and switch into them. Other
-    // sessions' children stay hidden to keep the list focused.
-    const isChildOfCurrent = (x: { parentID?: string }) => current !== undefined && x.parentID === current
+    const isChildOfCurrent = (x: { parentID?: string }) => x.parentID !== undefined
     return sessions()
-      .filter((x) => x.parentID === undefined || isChildOfCurrent(x))
       .toSorted((a, b) => {
         const updatedDay = new Date(b.time.updated).setHours(0, 0, 0, 0) - new Date(a.time.updated).setHours(0, 0, 0, 0)
         if (updatedDay !== 0) return updatedDay
@@ -264,6 +259,23 @@ export function DialogSessionList() {
           title: "rename",
           onTrigger: async (option) => {
             dialog.replace(() => <DialogSessionRename session={option.value} />)
+          },
+        },
+        {
+          keybind: Keybind.parse("ctrl+a")[0],
+          title: "archive",
+          onTrigger: async (option) => {
+            const result = await sdk.client.session.update({
+              sessionID: option.value,
+              time: { archived: Date.now() },
+            })
+            if (result.error) {
+              toast.show({ variant: "error", message: errorMessage(result.error) })
+              return
+            }
+            if (option.value === currentSessionID()) route.navigate({ type: "home" })
+            await sync.session.refresh()
+            if (search()) await refetch()
           },
         },
         {
