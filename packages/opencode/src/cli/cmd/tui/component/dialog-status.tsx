@@ -4,12 +4,18 @@ import path from "path"
 import { useTheme } from "../context/theme"
 import { useDialog } from "@tui/ui/dialog"
 import { useSync } from "@tui/context/sync"
+import { useSDK } from "@tui/context/sdk"
+import { useToast } from "../ui/toast"
+import * as Clipboard from "../util/clipboard"
+import { errorMessage } from "@/util/error"
 import { For, Match, Switch, Show, createMemo } from "solid-js"
 
 export type DialogStatusProps = {}
 
 export function DialogStatus() {
   const sync = useSync()
+  const sdk = useSDK()
+  const toast = useToast()
   const { theme } = useTheme()
   const dialog = useDialog()
 
@@ -40,16 +46,49 @@ export function DialogStatus() {
     return result.toSorted((a, b) => a.name.localeCompare(b.name))
   })
 
+  const diagnostics = createMemo(() =>
+    JSON.stringify(
+      {
+        platform: process.platform,
+        providers: sync.data.provider.map((provider) => ({ id: provider.id, models: Object.keys(provider.models).length })),
+        mcp: Object.fromEntries(Object.entries(sync.data.mcp).map(([name, item]) => [name, item.status])),
+        lsp: sync.data.lsp.map((item) => ({ id: item.id, status: item.status })),
+      },
+      undefined,
+      2,
+    ),
+  )
+
+  async function retryMcp(name: string) {
+    const result = await sdk.client.mcp.connect({ name })
+    if (result.error) {
+      toast.show({ variant: "error", message: errorMessage(result.error) })
+      return
+    }
+    toast.show({ variant: "success", message: `Reconnecting ${name}` })
+  }
+
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
           Status
         </text>
-        <text fg={theme.textMuted} onMouseUp={() => dialog.clear()}>
-          esc
-        </text>
+        <box flexDirection="row" gap={2}>
+          <text
+            fg={theme.textMuted}
+            onMouseUp={() => void Clipboard.copy(diagnostics()).then(() => toast.show({ variant: "success", message: "Diagnostics copied" }))}
+          >
+            copy diagnostics
+          </text>
+          <text fg={theme.textMuted} onMouseUp={() => dialog.clear()}>
+            esc
+          </text>
+        </box>
       </box>
+      <text fg={theme.textMuted}>
+        {sync.data.provider.length} providers · {sync.data.provider.reduce((count, provider) => count + Object.keys(provider.models).length, 0)} models
+      </text>
       <Show when={Object.keys(sync.data.mcp).length > 0} fallback={<text fg={theme.text}>No MCP Servers</text>}>
         <box>
           <text fg={theme.text}>{Object.keys(sync.data.mcp).length} MCP Servers</text>
@@ -58,6 +97,7 @@ export function DialogStatus() {
               <box flexDirection="row" gap={1}>
                 <text
                   flexShrink={0}
+                  onMouseUp={() => item.status !== "connected" && void retryMcp(key)}
                   style={{
                     fg: (
                       {
@@ -89,6 +129,9 @@ export function DialogStatus() {
                       </Match>
                     </Switch>
                   </span>
+                  <Show when={item.status !== "connected"}>
+                    <span style={{ fg: theme.textMuted }}> (click to retry)</span>
+                  </Show>
                 </text>
               </box>
             )}
